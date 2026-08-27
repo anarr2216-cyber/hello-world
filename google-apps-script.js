@@ -1,10 +1,6 @@
-/**
- * Google Apps Script - 汽機車保養跨裝置雲端同步後端
- */
 function doGet(e) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    
     var vehSheet = ss.getSheetByName('車輛清單');
     var vehicles = [];
     if (vehSheet && vehSheet.getLastRow() > 1) {

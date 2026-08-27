@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>車輛專屬保養管理系統 (複選分類版)</title>
+    <title>車輛專屬保養管理系統</title>
     
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#0f172a">
@@ -22,15 +22,13 @@
         .veh-card-active { border-color: #2563eb !important; background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15); }
         .subtab-btn.active { border-bottom: 2px solid #2563eb; color: #1d4ed8; font-weight: 700; }
         .custom-scrollbar::-webkit-scrollbar { display: none; }
-        
-        /* Custom checkbox styles for pills */
         input[type="checkbox"]:checked + span { color: #1d4ed8; font-weight: 700; }
         label:has(input[type="checkbox"]:checked) { background-color: #eff6ff; border-color: #93c5fd; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col selection:bg-blue-500 selection:text-white">
 
-    <!-- Top Header / App Bar -->
+    <!-- Top Header -->
     <header class="bg-slate-900 text-white shadow sticky top-0 z-40 pt-2 pb-2.5 px-4">
         <div class="max-w-4xl mx-auto flex items-center justify-between">
             <div class="flex items-center space-x-3">
@@ -39,11 +37,11 @@
                 </div>
                 <div>
                     <h1 class="font-bold text-sm sm:text-base leading-tight">車輛獨立保養管理</h1>
-                    <p class="text-[10px] text-blue-300">保養分類複選 & 自訂管理</p>
+                    <p class="text-[10px] text-blue-300">完整版 (分類複選/車輛增刪改查)</p>
                 </div>
             </div>
             <div class="flex items-center space-x-2">
-                <button onclick="pullCloudData(true)" title="立即自雲端更新" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-xs transition border border-slate-700">
+                <button onclick="pullCloudData(true)" title="立即更新" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-xs transition border border-slate-700">
                     <i id="icon-refresh" class="fa-solid fa-rotate"></i>
                 </button>
                 <button onclick="openSyncModal()" id="btn-sync-status" class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
@@ -75,7 +73,7 @@
             <div class="flex space-x-3 overflow-x-auto pb-1 custom-scrollbar" id="vehicle-selector-pills"></div>
         </div>
 
-        <!-- Active Vehicle Isolated Dashboard Card -->
+        <!-- Active Vehicle Dashboard -->
         <div id="active-vehicle-card-wrapper" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div class="p-4 sm:p-5 bg-gradient-to-r from-slate-900 to-indigo-950 text-white relative">
                 <div class="flex items-center justify-between">
@@ -124,7 +122,7 @@
             <div class="p-3 sm:p-4">
                 <div id="content-maint" class="space-y-3">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold text-slate-700">獨立保養歷程工單</span>
+                        <span class="text-xs font-bold text-slate-700">獨立保養歷程</span>
                         <div class="flex gap-2">
                             <button onclick="openAddModal('maint')" class="text-xs font-bold text-blue-600"><i class="fa-solid fa-plus-circle"></i> 新增紀錄</button>
                         </div>
@@ -156,7 +154,7 @@
         </div>
     </main>
 
-    <!-- Bottom Mobile Nav Bar -->
+    <!-- Bottom Nav -->
     <nav class="sticky bottom-0 bg-white border-t border-slate-200 py-2 px-6 flex justify-around items-center text-slate-500 text-[11px] shadow-lg z-30">
         <button onclick="switchTab('maint')" class="flex flex-col items-center hover:text-blue-600 active:scale-95 transition"><i class="fa-solid fa-wrench text-base mb-0.5 text-blue-600"></i><span>保養明細</span></button>
         <button onclick="switchTab('alert')" class="flex flex-col items-center hover:text-amber-600 active:scale-95 transition"><i class="fa-solid fa-bell text-base mb-0.5 text-amber-500"></i><span>耗材預警</span></button>
@@ -165,7 +163,7 @@
         <button onclick="openVehiclesListModal()" class="flex flex-col items-center hover:text-indigo-600 active:scale-95 transition"><i class="fa-solid fa-garage text-base mb-0.5 text-indigo-600"></i><span>車庫管理</span></button>
     </nav>
 
-    <!-- Modal 1: Quick Add Maintenance Record (Multi-select Categories) -->
+    <!-- Modal 1: Quick Add Maintenance (Categories Checkboxes) -->
     <div id="modal-add" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
         <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b pb-3">
@@ -182,7 +180,6 @@
                     <div><label class="block text-slate-600 font-medium mb-1">保養里程 (km)</label><input type="number" id="modal-mileage" required class="w-full border border-slate-300 rounded-lg p-2 font-mono"></div>
                 </div>
                 
-                <!-- Multi-select Categories -->
                 <div>
                     <div class="flex justify-between items-center mb-1.5">
                         <label class="block text-slate-600 font-medium">保養分類 (可複選)</label>
@@ -221,21 +218,20 @@
             <div class="overflow-y-auto flex-grow bg-slate-50 rounded-xl p-3 border border-slate-200">
                 <ul id="category-list-container" class="space-y-2"></ul>
             </div>
-            <p class="text-[10px] text-slate-400 text-center shrink-0">提示：此處修改分類，即可在新增保養時進行複選勾選。</p>
         </div>
     </div>
 
     <!-- Modal 2: Vehicle CRUD Edit/Create Modal -->
-    <div id="modal-veh-edit" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div id="modal-veh-edit" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
         <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b pb-3">
-                <h3 id="modal-veh-edit-title" class="font-bold text-slate-800 text-base flex items-center gap-2"><i class="fa-solid fa-car text-blue-600"></i> 新增/編輯車輛</h3>
+                <h3 id="modal-veh-edit-title" class="font-bold text-slate-800 text-base flex items-center gap-2"></h3>
                 <button onclick="closeVehicleEditModal()" class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm">✕</button>
             </div>
             <form id="form-veh-edit" onsubmit="handleSaveVehicle(event)" class="space-y-3 text-xs">
                 <input type="hidden" id="veh-edit-is-new" value="true">
                 <div class="grid grid-cols-2 gap-3">
-                    <div><label class="block text-slate-600 font-medium mb-1">車輛代號</label><input type="text" id="veh-edit-id" required class="w-full border border-slate-300 rounded-lg p-2 font-mono uppercase"></div>
+                    <div><label class="block text-slate-600 font-medium mb-1">車輛代號 (ID)</label><input type="text" id="veh-edit-id" required class="w-full border border-slate-300 rounded-lg p-2 font-mono uppercase"></div>
                     <div><label class="block text-slate-600 font-medium mb-1">車牌號碼</label><input type="text" id="veh-edit-plate" required class="w-full border border-slate-300 rounded-lg p-2 font-mono uppercase"></div>
                 </div>
                 <div><label class="block text-slate-600 font-medium mb-1">自訂車輛名稱</label><input type="text" id="veh-edit-name" required class="w-full border border-slate-300 rounded-lg p-2"></div>
@@ -269,28 +265,33 @@
                     <div><label class="block text-slate-600 font-medium mb-1">目前里程數</label><input type="number" id="veh-edit-mileage" required class="w-full border border-slate-300 rounded-lg p-2 font-mono"></div>
                 </div>
                 <div class="pt-3 flex gap-2">
-                    <button type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg active:scale-98 transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-floppy-disk"></i> 儲存</button>
+                    <button type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-floppy-disk"></i> 儲存車輛資料</button>
                     <button type="button" onclick="closeVehicleEditModal()" class="px-4 py-3 bg-slate-100 text-slate-600 font-semibold rounded-xl hover:bg-slate-200 transition">取消</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Modal 3 & 4 (Garage List & Sync) -->
+    <!-- Modal 3: Garage List Modal -->
     <div id="modal-veh-list" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 max-h-[85vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2"><i class="fa-solid fa-garage text-blue-600"></i> 車庫總覽</h3>
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2"><i class="fa-solid fa-garage text-blue-600"></i> 車庫總覽管理</h3>
                 <button onclick="closeVehiclesListModal()" class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm">✕</button>
+            </div>
+            <div class="flex justify-between items-center text-xs">
+                <span class="text-slate-500">已登記車輛清單</span>
+                <button onclick="closeVehiclesListModal(); openVehicleEditModal(null);" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg"><i class="fa-solid fa-plus"></i> 新增車輛</button>
             </div>
             <div id="garage-vehicles-list" class="space-y-2.5"></div>
         </div>
     </div>
 
-    <div id="modal-sync" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <!-- Modal 4: Sync Setup -->
+    <div id="modal-sync" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-4">
             <div class="flex items-center justify-between border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i> Google 雲端同步設定</h3>
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i> 雲端同步設定</h3>
                 <button onclick="closeSyncModal()" class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm">✕</button>
             </div>
             <div class="space-y-2 text-xs">
@@ -309,75 +310,16 @@
             window.addEventListener('load', () => { navigator.serviceWorker.register('./service-worker.js').catch(err => console.log(err)); });
         }
 
-        // ================= CATEGORIES CRUD & MULTI-SELECT =================
-        const defaultCategories = ["機油", "機油濾芯", "齒輪油/變速箱油", "空氣濾清器", "冷氣濾網", "火星塞", "傳動皮帶/鏈條", "煞車皮/來令片", "煞車油", "輪胎", "電瓶", "水箱精", "洗車/鍍膜/美容", "其他維修"];
-        let maintenanceCategories = JSON.parse(localStorage.getItem('user_maint_categories')) || defaultCategories;
-
-        function saveCategories() {
-            localStorage.setItem('user_maint_categories', JSON.stringify(maintenanceCategories));
-            updateCategoryCheckboxes();
-        }
-
-        function openCategoryManager() {
-            renderCategoryList();
-            document.getElementById('modal-category-manager').classList.remove('hidden');
-        }
-
-        function closeCategoryManager() {
-            document.getElementById('modal-category-manager').classList.add('hidden');
-        }
-
-        function renderCategoryList() {
-            const container = document.getElementById('category-list-container');
-            container.innerHTML = maintenanceCategories.map((cat, index) => `
-                <li class="flex items-center justify-between bg-white px-3 py-2 rounded border border-slate-200 shadow-sm text-xs">
-                    <span class="font-bold text-slate-700">${cat}</span>
-                    <button type="button" onclick="deleteCategory(${index})" class="text-slate-400 hover:text-red-500 transition"><i class="fa-solid fa-trash-can"></i></button>
-                </li>
-            `).join('');
-        }
-
-        function addCategory() {
-            const input = document.getElementById('new-category-input');
-            const val = input.value.trim();
-            if (val === "") return;
-            if (maintenanceCategories.includes(val)) {
-                alert("此分類已存在！");
-                return;
-            }
-            maintenanceCategories.push(val);
-            input.value = "";
-            saveCategories();
-            renderCategoryList();
-        }
-
-        function deleteCategory(index) {
-            if (confirm(`確定要刪除分類「${maintenanceCategories[index]}」嗎？`)) {
-                maintenanceCategories.splice(index, 1);
-                saveCategories();
-                renderCategoryList();
-            }
-        }
-
-        function updateCategoryCheckboxes() {
-            const container = document.getElementById('modal-cat-container');
-            if (container) {
-                container.innerHTML = maintenanceCategories.map(cat => `
-                    <label class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs cursor-pointer hover:bg-blue-50 transition shadow-sm select-none">
-                        <input type="checkbox" name="maint-category" value="${cat}" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300">
-                        <span class="text-slate-700 font-medium">${cat}</span>
-                    </label>
-                `).join('');
-            }
-        }
-
-        // Initialize default datasets
-        let vehicles = JSON.parse(localStorage.getItem('user_vehicles')) || [{ id: "Car-01", name: "家庭休旅車", plate: "ABC-8899", type: "四輪汽車 (SUV)", model: "Toyota RAV4 2.0", year: 2021, mileage: 35200, icon: "fa-solid fa-car-side" }];
+        // ================= GLOBAL STATE & UTILS =================
+        let vehicles = JSON.parse(localStorage.getItem('user_vehicles')) || [];
         let maintenanceLogs = JSON.parse(localStorage.getItem('user_maintenance_logs')) || [];
         let fuelLogs = JSON.parse(localStorage.getItem('user_fuel_logs')) || [];
         let alertSettings = JSON.parse(localStorage.getItem('user_alert_settings')) || [];
         let selectedVehId = vehicles.length > 0 ? vehicles[0].id : null;
         let googleScriptUrl = localStorage.getItem('google_script_url') || '';
+
+        const defaultCategories = ["機油", "機油濾芯", "齒輪油/變速箱油", "空氣濾清器", "冷氣濾網", "火星塞", "傳動皮帶/鏈條", "煞車皮/來令片", "煞車油", "輪胎", "電瓶", "水箱精", "洗車/鍍膜/美容", "其他維修"];
+        let maintenanceCategories = JSON.parse(localStorage.getItem('user_maint_categories')) || defaultCategories;
 
         function formatMoney(num) { return 'NT$ ' + Math.round(num).toLocaleString(); }
 
@@ -408,6 +350,19 @@
             }
         }
 
+        function saveVehiclesToStorage() {
+            localStorage.setItem('user_vehicles', JSON.stringify(vehicles));
+            if (googleScriptUrl) {
+                try {
+                    fetch(googleScriptUrl, {
+                        method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: "SYNC_VEHICLES", data: vehicles })
+                    });
+                } catch(e) {}
+            }
+        }
+
+        // ================= INIT APP =================
         function initApp() {
             renderVehiclePills();
             if (vehicles.length > 0) {
@@ -425,8 +380,10 @@
             if (googleScriptUrl) document.getElementById('input-gas-url').value = googleScriptUrl;
         }
 
+        // ================= UI RENDER =================
         function renderVehiclePills() {
             const container = document.getElementById('vehicle-selector-pills');
+            if (vehicles.length === 0) { container.innerHTML = `<span class="text-xs text-slate-400 italic py-2">目前無車輛</span>`; return; }
             container.innerHTML = vehicles.map(v => {
                 const isSelected = v.id === selectedVehId;
                 return `
@@ -453,7 +410,7 @@
             const vMaints = maintenanceLogs.filter(m => m.vehId === veh.id);
             const maintCost = vMaints.reduce((acc, m) => acc + (Number(m.partCost) + Number(m.laborCost)), 0);
 
-            document.getElementById('active-veh-tco').innerText = formatMoney(maintCost);
+            document.getElementById('active-veh-tco').innerText = formatMoney(maintCost); // simplified TCO for demo
             document.getElementById('stat-maint').innerText = formatMoney(maintCost);
             document.getElementById('badge-maint').innerText = vMaints.length;
 
@@ -464,10 +421,8 @@
             const list = document.getElementById('list-maint');
             if (logs.length === 0) { list.innerHTML = `<div class="p-6 text-center text-slate-400 text-xs">尚無保養紀錄</div>`; return; }
             list.innerHTML = logs.map(m => {
-                // Handle multi-select categories (split by ' / ' and render as badges)
                 const catStr = m.cat || '未分類';
                 const catBadges = catStr.split(' / ').map(c => `<span class="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-100 text-blue-700 text-[10px] font-bold whitespace-nowrap">${c}</span>`).join('');
-
                 return `
                 <div class="p-3 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1.5">
                     <div class="flex items-center justify-between">
@@ -486,35 +441,59 @@
                 document.getElementById('content-' + t).classList.toggle('hidden', t !== tabKey);
             });
         }
+
+        // ================= CATEGORIES CRUD =================
+        function saveCategories() {
+            localStorage.setItem('user_maint_categories', JSON.stringify(maintenanceCategories));
+            updateCategoryCheckboxes();
+        }
+        function openCategoryManager() { renderCategoryList(); document.getElementById('modal-category-manager').classList.remove('hidden'); }
+        function closeCategoryManager() { document.getElementById('modal-category-manager').classList.add('hidden'); }
+        function renderCategoryList() {
+            document.getElementById('category-list-container').innerHTML = maintenanceCategories.map((cat, idx) => `
+                <li class="flex items-center justify-between bg-white px-3 py-2 rounded border border-slate-200 shadow-sm text-xs">
+                    <span class="font-bold text-slate-700">${cat}</span>
+                    <button type="button" onclick="deleteCategory(${idx})" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-trash-can"></i></button>
+                </li>`).join('');
+        }
+        function addCategory() {
+            const val = document.getElementById('new-category-input').value.trim();
+            if (val === "" || maintenanceCategories.includes(val)) return;
+            maintenanceCategories.push(val);
+            document.getElementById('new-category-input').value = "";
+            saveCategories(); renderCategoryList();
+        }
+        function deleteCategory(idx) {
+            if (confirm(`刪除分類「${maintenanceCategories[idx]}」？(不影響過去紀錄)`)) {
+                maintenanceCategories.splice(idx, 1);
+                saveCategories(); renderCategoryList();
+            }
+        }
+        function updateCategoryCheckboxes() {
+            const container = document.getElementById('modal-cat-container');
+            if (container) {
+                container.innerHTML = maintenanceCategories.map(cat => `
+                    <label class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs cursor-pointer hover:bg-blue-50 transition shadow-sm select-none">
+                        <input type="checkbox" name="maint-category" value="${cat}" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300">
+                        <span class="text-slate-700 font-medium">${cat}</span>
+                    </label>`).join('');
+            }
+        }
+
+        // ================= MAINTENANCE LOGIC =================
         function initModalVehicleOptions() { document.getElementById('modal-veh-select').innerHTML = vehicles.map(v => `<option value="${v.id}">${v.id} - ${v.name}</option>`).join(''); }
-        
         function openAddModal() { 
+            if(vehicles.length===0){ alert('請先新增車輛！'); openVehicleEditModal(); return; }
             document.getElementById('modal-veh-select').value = selectedVehId; 
-            // Uncheck all categories
             document.querySelectorAll('input[name="maint-category"]').forEach(cb => cb.checked = false);
             document.getElementById('modal-add').classList.remove('hidden'); 
         }
         function closeAddModal() { document.getElementById('modal-add').classList.add('hidden'); }
-        function openSyncModal() { document.getElementById('modal-sync').classList.remove('hidden'); }
-        function closeSyncModal() { document.getElementById('modal-sync').classList.add('hidden'); }
-        function saveSyncSettings() {
-            googleScriptUrl = document.getElementById('input-gas-url').value.trim();
-            localStorage.setItem('google_script_url', googleScriptUrl);
-            closeSyncModal();
-            pullCloudData(true);
-        }
-
         async function handleSaveMaintenance(e) {
             e.preventDefault();
-
-            // Get selected categories
             const catCheckboxes = document.querySelectorAll('input[name="maint-category"]:checked');
             const catValues = Array.from(catCheckboxes).map(cb => cb.value);
-            
-            if (catValues.length === 0) {
-                alert("請至少勾選一項保養分類！");
-                return;
-            }
+            if (catValues.length === 0) { alert("請至少勾選一項保養分類！"); return; }
 
             const vehId = document.getElementById('modal-veh-select').value;
             const newLog = {
@@ -522,35 +501,138 @@
                 date: document.getElementById('modal-date').value,
                 vehId: vehId,
                 mileage: Number(document.getElementById('modal-mileage').value),
-                cat: catValues.join(" / "), // Join multiple categories
+                cat: catValues.join(" / "),
                 desc: document.getElementById('modal-desc').value,
                 partCost: Number(document.getElementById('modal-partcost').value) || 0,
                 laborCost: Number(document.getElementById('modal-laborcost').value) || 0,
                 nextMileage: Number(document.getElementById('modal-nextkm').value) || 0,
-                shop: document.getElementById('modal-shop').value || '',
-                note: ''
+                shop: document.getElementById('modal-shop').value || '', note: ''
             };
-
             maintenanceLogs.unshift(newLog);
             localStorage.setItem('user_maintenance_logs', JSON.stringify(maintenanceLogs));
 
             const targetVeh = vehicles.find(v => v.id === vehId);
             if (targetVeh && newLog.mileage > targetVeh.mileage) {
-                targetVeh.mileage = newLog.mileage;
-                localStorage.setItem('user_vehicles', JSON.stringify(vehicles));
+                targetVeh.mileage = newLog.mileage; saveVehiclesToStorage();
             }
-
             if (googleScriptUrl) {
                 try { fetch(googleScriptUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: "ADD_MAINTENANCE", data: newLog }) }); } catch(err){}
             }
-
             closeAddModal(); selectVehicle(vehId);
+            alert("✅ 保養紀錄已儲存！");
         }
 
-        function openVehicleEditModal(id){ document.getElementById('modal-veh-edit').classList.remove('hidden'); }
-        function closeVehicleEditModal(){ document.getElementById('modal-veh-edit').classList.add('hidden'); }
-        function openVehiclesListModal() { document.getElementById('modal-veh-list').classList.remove('hidden'); }
+        // ================= VEHICLE FULL CRUD =================
+        function autoSelectVehicleIcon() {
+            const type = document.getElementById('veh-edit-type').value;
+            const iconSelect = document.getElementById('veh-edit-icon');
+            if (type.includes('機車') || type.includes('Scooter')) { iconSelect.value = "fa-solid fa-motorcycle"; }
+            else if (type.includes('大型重型') || type.includes('Heavy')) { iconSelect.value = "fa-solid fa-person-biking"; }
+            else if (type.includes('貨車') || type.includes('Truck')) { iconSelect.value = "fa-solid fa-truck"; }
+            else { iconSelect.value = "fa-solid fa-car-side"; }
+        }
+
+        function openVehicleEditModal(vehId = null) {
+            const isNew = !vehId;
+            document.getElementById('veh-edit-is-new').value = isNew ? "true" : "false";
+            document.getElementById('modal-veh-edit-title').innerHTML = isNew ? '<i class="fa-solid fa-plus-circle text-blue-600"></i> 新增專屬愛車' : '<i class="fa-solid fa-pen-to-square text-blue-600"></i> 編輯車輛資料';
+            
+            if (isNew) {
+                const nextId = "Car-" + String(vehicles.filter(v => v.id.startsWith('Car')).length + 1).padStart(2, '0');
+                document.getElementById('veh-edit-id').value = nextId;
+                document.getElementById('veh-edit-id').removeAttribute('readonly');
+                document.getElementById('veh-edit-plate').value = ""; document.getElementById('veh-edit-name').value = "";
+                document.getElementById('veh-edit-type').value = "四輪汽車 (SUV)"; document.getElementById('veh-edit-model').value = "";
+                document.getElementById('veh-edit-year').value = new Date().getFullYear(); document.getElementById('veh-edit-mileage').value = 0;
+                document.getElementById('veh-edit-icon').value = "fa-solid fa-car-side";
+            } else {
+                const v = vehicles.find(item => item.id === vehId);
+                if (!v) return;
+                document.getElementById('veh-edit-id').value = v.id; document.getElementById('veh-edit-id').setAttribute('readonly', true);
+                document.getElementById('veh-edit-plate').value = v.plate; document.getElementById('veh-edit-name').value = v.name;
+                document.getElementById('veh-edit-type').value = v.type; document.getElementById('veh-edit-model').value = v.model;
+                document.getElementById('veh-edit-year').value = v.year; document.getElementById('veh-edit-mileage').value = v.mileage;
+                document.getElementById('veh-edit-icon').value = v.icon || "fa-solid fa-car-side";
+            }
+            document.getElementById('modal-veh-edit').classList.remove('hidden');
+        }
+
+        function closeVehicleEditModal() { document.getElementById('modal-veh-edit').classList.add('hidden'); }
+        
+        function handleSaveVehicle(e) {
+            e.preventDefault();
+            const isNew = document.getElementById('veh-edit-is-new').value === "true";
+            const id = document.getElementById('veh-edit-id').value.trim().toUpperCase();
+            const plate = document.getElementById('veh-edit-plate').value.trim().toUpperCase();
+            const name = document.getElementById('veh-edit-name').value.trim();
+            const type = document.getElementById('veh-edit-type').value;
+            const model = document.getElementById('veh-edit-model').value.trim();
+            const year = Number(document.getElementById('veh-edit-year').value) || new Date().getFullYear();
+            const mileage = Number(document.getElementById('veh-edit-mileage').value) || 0;
+            const icon = document.getElementById('veh-edit-icon').value;
+
+            if (isNew) {
+                if (vehicles.some(v => v.id === id)) { alert("代號已存在！"); return; }
+                vehicles.push({ id, name, plate, type, model, year, mileage, icon });
+                selectedVehId = id;
+            } else {
+                const idx = vehicles.findIndex(v => v.id === id);
+                if (idx !== -1) vehicles[idx] = { id, name, plate, type, model, year, mileage, icon };
+            }
+
+            saveVehiclesToStorage(); closeVehicleEditModal(); initApp();
+            if(!document.getElementById('modal-veh-list').classList.contains('hidden')) renderGarageListModal();
+            alert(isNew ? "車輛新增成功！" : "車輛更新完成！");
+        }
+
+        function editCurrentVehicle() { if (selectedVehId) openVehicleEditModal(selectedVehId); }
+        function deleteCurrentVehicle() { if (selectedVehId) deleteVehicle(selectedVehId); }
+
+        function deleteVehicle(vehId) {
+            const v = vehicles.find(item => item.id === vehId);
+            if (!v || !confirm(`確定要刪除「${v.name}」嗎？無法復原！`)) return;
+
+            vehicles = vehicles.filter(item => item.id !== vehId);
+            maintenanceLogs = maintenanceLogs.filter(m => m.vehId !== vehId);
+            localStorage.setItem('user_maintenance_logs', JSON.stringify(maintenanceLogs));
+            saveVehiclesToStorage();
+
+            selectedVehId = vehicles.length > 0 ? vehicles[0].id : null;
+            initApp();
+            if(!document.getElementById('modal-veh-list').classList.contains('hidden')) renderGarageListModal();
+            alert("車輛已刪除！");
+        }
+
+        // ================= GARAGE LIST =================
+        function openVehiclesListModal() { renderGarageListModal(); document.getElementById('modal-veh-list').classList.remove('hidden'); }
         function closeVehiclesListModal() { document.getElementById('modal-veh-list').classList.add('hidden'); }
+        function renderGarageListModal() {
+            const container = document.getElementById('garage-vehicles-list');
+            if (vehicles.length === 0) { container.innerHTML = `<div class="text-center text-slate-400 text-xs py-4">無車輛</div>`; return; }
+            container.innerHTML = vehicles.map(v => `
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-lg"><i class="${v.icon}"></i></div>
+                        <div>
+                            <div class="flex items-center gap-1.5"><span class="font-mono font-bold text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">${v.id}</span><h4 class="font-bold text-slate-800 text-xs">${v.name}</h4></div>
+                            <p class="text-[11px] text-slate-500 font-mono mt-0.5">${v.plate} • ${Number(v.mileage).toLocaleString()} km</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="openVehicleEditModal('${v.id}')" class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteVehicle('${v.id}')" class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-red-600"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                </div>`).join('');
+        }
+
+        // ================= SYNC MODAL =================
+        function openSyncModal() { document.getElementById('modal-sync').classList.remove('hidden'); }
+        function closeSyncModal() { document.getElementById('modal-sync').classList.add('hidden'); }
+        function saveSyncSettings() {
+            googleScriptUrl = document.getElementById('input-gas-url').value.trim();
+            localStorage.setItem('google_script_url', googleScriptUrl);
+            closeSyncModal(); pullCloudData(true);
+        }
 
         document.addEventListener('DOMContentLoaded', () => { initApp(); pullCloudData(false); });
     </script>
