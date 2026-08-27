@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>車輛專屬保養管理系統 (PWA 雲端雙向同步)</title>
+    
+    <!-- PWA Settings -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="車輛保養">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3202/3202926.png">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .veh-card-active {
+            border-color: #2563eb !important;
+            background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+        }
+        .subtab-btn.active {
+            border-bottom: 2px solid #2563eb;
+            color: #1d4ed8;
+            font-weight: 700;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col selection:bg-blue-500 selection:text-white">
+
+    <!-- Top Header / App Bar -->
+    <header class="bg-slate-900 text-white shadow sticky top-0 z-40 pt-2 pb-2.5 px-4">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-blue-600/30 border border-blue-400/30 flex items-center justify-center text-blue-400 text-lg">
+                    <i class="fa-solid fa-car-rear"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-sm sm:text-base leading-tight">車輛獨立保養管理</h1>
+                    <p class="text-[10px] text-blue-300">多裝置即時雙向同步版</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <!-- Refresh / Pull cloud data button -->
+                <button onclick="pullCloudData(true)" title="立即自雲端更新" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-xs transition border border-slate-700">
+                    <i id="icon-refresh" class="fa-solid fa-rotate"></i>
+                </button>
+                <!-- Vehicle Manager button -->
+                <button onclick="openVehiclesListModal()" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-car-side text-blue-400"></i> 車庫
+                </button>
+                <!-- Sync Status Indicator -->
+                <button onclick="openSyncModal()" id="btn-sync-status" class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                    <span id="sync-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="sync-status-text">連線中</span>
+                </button>
+                <button onclick="openAddModal()" class="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-lg active:scale-95 transition">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Cloud Sync Notice Bar (if not configured) -->
+    <div id="banner-no-sync" class="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-800 hidden">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-triangle-exclamation text-amber-600"></i>
+                <strong>尚未設定 Google 雲端同步網址</strong>：手機與電腦目前各自儲存在本機！
+            </span>
+            <button onclick="openSyncModal()" class="font-bold underline text-amber-900 ml-2">點此設定</button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-4xl w-full mx-auto px-3 sm:px-4 py-4 space-y-4">
+
+        <!-- Vehicle Horizontal Selector (Swipeable on Mobile) -->
+        <div>
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-warehouse text-blue-600"></i> 專屬愛車清單
+                </h2>
+                <div class="flex items-center gap-2">
+                    <button onclick="openVehicleEditModal(null)" class="text-xs font-bold text-blue-600 flex items-center gap-1 hover:underline">
+                        <i class="fa-solid fa-plus-circle"></i> 新增車輛
+                    </button>
+                    <span class="text-slate-300">|</span>
+                    <button onclick="openVehiclesListModal()" class="text-xs text-slate-500 hover:text-slate-800">
+                        管理車庫
+                    </button>
+                </div>
+            </div>
+            <div class="flex space-x-3 overflow-x-auto pb-1 custom-scrollbar" id="vehicle-selector-pills">
+                <!-- Generated by JS -->
+            </div>
+        </div>
+
+        <!-- Active Vehicle Isolated Dashboard Card -->
+        <div id="active-vehicle-card-wrapper" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            
+            <!-- Vehicle Banner -->
+            <div class="p-4 sm:p-5 bg-gradient-to-r from-slate-900 to-indigo-950 text-white relative">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div id="active-veh-avatar" class="w-12 h-12 rounded-xl bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-xl text-blue-300">
+                            <i class="fa-solid fa-car"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span id="active-veh-id" class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono font-bold text-xs">Car-01</span>
+                                <h3 id="active-veh-name" class="font-bold text-base text-white">家庭休旅車</h3>
+                            </div>
+                            <p id="active-veh-model" class="text-xs text-slate-300 font-light mt-0.5">Toyota RAV4 2.0 • 2021</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="text-right">
+                            <p class="text-[10px] text-slate-400">累計花費 (TCO)</p>
+                            <p id="active-veh-tco" class="text-lg font-black text-amber-400 font-mono">NT$ 51,098</p>
+                        </div>
+                        <div class="flex flex-col gap-1.5 ml-1 border-l border-slate-700/60 pl-3">
+                            <button onclick="editCurrentVehicle()" title="修改此車資料" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center justify-center text-xs transition">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button onclick="deleteCurrentVehicle()" title="刪除此車輛" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white flex items-center justify-center text-xs transition">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-3 pt-3 border-t border-slate-800 grid grid-cols-2 gap-2 text-xs">
+                    <div><span class="text-slate-400">車牌：</span><strong id="active-veh-plate" class="text-white font-mono">ABC-8899</strong></div>
+                    <div class="text-right"><span class="text-slate-400">總里程：</span><strong id="active-veh-mileage" class="text-white font-mono">35,200 km</strong></div>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-200 bg-slate-50 text-center text-xs py-2.5">
+                <div>
+                    <p class="text-slate-400 text-[10px]">保養花費</p>
+                    <p id="stat-maint" class="font-bold text-indigo-700 font-mono text-sm mt-0.5">NT$ 6,200</p>
+                </div>
+                <div>
+                    <p class="text-slate-400 text-[10px]">燃油油資</p>
+                    <p id="stat-fuel" class="font-bold text-amber-600 font-mono text-sm mt-0.5">NT$ 3,991</p>
+                </div>
+                <div>
+                    <p class="text-slate-400 text-[10px]">稅費保險</p>
+                    <p id="stat-exp" class="font-bold text-emerald-600 font-mono text-sm mt-0.5">NT$ 40,880</p>
+                </div>
+            </div>
+
+            <!-- Sub Tab Navigation -->
+            <div class="border-b border-slate-200 flex space-x-2 px-3 overflow-x-auto custom-scrollbar text-xs">
+                <button onclick="switchTab('maint')" id="tab-maint" class="subtab-btn active py-3 px-2 flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-wrench"></i> 保養紀錄 (<span id="badge-maint">0</span>)
+                </button>
+                <button onclick="switchTab('alert')" id="tab-alert" class="subtab-btn py-3 px-2 flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-triangle-exclamation"></i> 耗材預警 (<span id="badge-alert">0</span>)
+                </button>
+                <button onclick="switchTab('fuel')" id="tab-fuel" class="subtab-btn py-3 px-2 flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-gas-pump"></i> 加油油耗 (<span id="badge-fuel">0</span>)
+                </button>
+                <button onclick="switchTab('exp')" id="tab-exp" class="subtab-btn py-3 px-2 flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-receipt"></i> 稅費保險
+                </button>
+            </div>
+
+            <!-- Tab Content Panel -->
+            <div class="p-3 sm:p-4">
+                
+                <!-- 1. Maintenance Content -->
+                <div id="content-maint" class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-700">獨立保養歷程工單</span>
+                        <button onclick="openAddModal('maint')" class="text-xs font-bold text-blue-600 flex items-center gap-1">
+                            <i class="fa-solid fa-plus-circle"></i> 記錄新保養
+                        </button>
+                    </div>
+                    <div id="list-maint" class="space-y-2.5">
+                        <!-- JS populated -->
+                    </div>
+                </div>
+
+                <!-- 2. Alerts Content -->
+                <div id="content-alert" class="hidden space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-700">耗材壽命動態監測</span>
+                        <span class="text-[10px] text-slate-400">依當前里程自動扣減</span>
+                    </div>
+                    <div id="list-alert" class="space-y-2.5">
+                        <!-- JS populated -->
+                    </div>
+                </div>
+
+                <!-- 3. Fuel Content -->
+                <div id="content-fuel" class="hidden space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-700">加油與油耗紀錄</span>
+                        <button onclick="openAddModal('fuel')" class="text-xs font-bold text-amber-600 flex items-center gap-1">
+                            <i class="fa-solid fa-plus-circle"></i> 記一筆加油
+                        </button>
+                    </div>
+                    <div id="list-fuel" class="space-y-2.5">
+                        <!-- JS populated -->
+                    </div>
+                </div>
+
+                <!-- 4. Expenses Content -->
+                <div id="content-exp" class="hidden space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-700">專屬稅費與保險</span>
+                    </div>
+                    <div id="list-exp" class="space-y-2.5">
+                        <!-- JS populated -->
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Empty state when no vehicles exist -->
+        <div id="no-vehicle-state" class="hidden bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-3">
+            <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto text-2xl">
+                <i class="fa-solid fa-car-on"></i>
+            </div>
+            <h3 class="font-bold text-slate-800 text-base">目前車庫內尚無任何車輛</h3>
+            <p class="text-xs text-slate-500 max-w-sm mx-auto">請點擊下方按鈕新增您的第一台汽車或機車，開始管理專屬保養紀錄！</p>
+            <button onclick="openVehicleEditModal(null)" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition">
+                <i class="fa-solid fa-plus mr-1"></i> 立即新增第一台車輛
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Bottom Mobile Nav Bar -->
+    <nav class="sticky bottom-0 bg-white border-t border-slate-200 py-2 px-6 flex justify-around items-center text-slate-500 text-[11px] shadow-lg z-30">
+        <button onclick="switchTab('maint')" class="flex flex-col items-center hover:text-blue-600 active:scale-95 transition">
+            <i class="fa-solid fa-wrench text-base mb-0.5 text-blue-600"></i>
+            <span>保養明細</span>
+        </button>
+        <button onclick="switchTab('alert')" class="flex flex-col items-center hover:text-amber-600 active:scale-95 transition">
+            <i class="fa-solid fa-bell text-base mb-0.5 text-amber-500"></i>
+            <span>耗材預警</span>
+        </button>
+        <button onclick="openAddModal()" class="w-11 h-11 -mt-5 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white active:scale-90 transition">
+            <i class="fa-solid fa-plus text-lg"></i>
+        </button>
+        <button onclick="switchTab('fuel')" class="flex flex-col items-center hover:text-amber-600 active:scale-95 transition">
+            <i class="fa-solid fa-gas-pump text-base mb-0.5 text-amber-600"></i>
+            <span>加油紀錄</span>
+        </button>
+        <button onclick="openVehiclesListModal()" class="flex flex-col items-center hover:text-indigo-600 active:scale-95 transition">
+            <i class="fa-solid fa-garage text-base mb-0.5 text-indigo-600"></i>
+            <span>車庫管理</span>
+        </button>
+    </nav>
+
+    <!-- Modal 1: Quick Add Maintenance Record -->
+    <div id="modal-add" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-blue-600"></i> 新增保養維修紀錄
+                </h3>
+                <button onclick="closeAddModal()" class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm">✕</button>
+            </div>
+            
+            <form id="form-add-maint" onsubmit="handleSaveMaintenance(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-600 font-medium mb-1">選擇車輛</label>
+                    <select id="modal-veh-select" class="w-full border border-slate-300 rounded-lg p-2.5 font-medium bg-slate-50">
+                        <!-- Options generated by JS -->
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-600 font-medium mb-1">保養日期</label>
+                        <input type="date" id="modal-date" required class="w-full border border-slate-300 rounded-lg p-2 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-slate-600 font-medium mb-1">保養里程 (km)</label>
+                        <input type="number" id="modal-mileage" placeholder="例如: 35000" required class="w-full border border-slate-300 rounded-lg p-2 font-mono">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-slate-600 font-medium mb-1">保養分類</label>
+                    <select id="modal-cat" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50">
+                        <option>定期機油保養</option>
+                        <option>傳動與變速箱</option>
+                        <option>底盤與懸吊/輪胎</option>
+                        <option>冷卻與電系</option>
+                        <option>其他耗材維修</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-600 font-medium mb-1">具體保養項目說明</label>
+                    <input type="text" id="modal-desc" placeholder="例如: 更換 0W-20 機油 + 機油濾清器" required class="w-full border border-slate-300 rounded-lg p-2">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-600 font-medium mb-1">零件費用 (NT$)</label>
+                        <input type="number" id="modal-partcost" placeholder="0" value="0" class="w-full border border-slate-300 rounded-lg p-2 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-slate-600 font-medium mb-1">工資費用 (NT$)</label>
+                        <input type="number" id="modal-laborcost" placeholder="0" value="0" class="w-full border border-slate-300 rounded-lg p-2 font-mono">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-600 font-medium mb-1">下次建議里程</label>
+                        <input type="number" id="modal-nextkm" placeholder="例如: 40000" class="w-full border border-slate-300 rounded-lg p-2 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-slate-600 font-medium mb-1">保養店家</label>
+                        <input type="text" id="modal-shop" placeholder="例如: 原廠服務廠" class="w-full border border-slate-300 rounded-lg p-2">
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg active:scale-98 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-check"></i> 儲存並即時同步
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 2: Vehicle CRUD Edit/Create Modal -->
+    <div id="modal-veh-edit" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 id="modal-veh-edit-title" class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-car text-blue-600"></i> 新增/編輯車輛
+                </h3>
+                <button onclick="closeVehicleEditModal()" class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm">✕</button>
+            </div>
+            
+            <form id="form-veh-edit" onsubmit="handleSaveVehicle(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="veh-edit-is-new" value="true">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-600 font-medium mb-1">車輛代號 (ID)</label>
+                        <input type="text" id="veh-edit-id" placeholder="例: Car-03, Moto-02" required class="w-full border border-slate-300 rounded-lg p-2 font-mono uppercase">
+                    </div>
+                    <div>
+                        <label class="block text-slate-600 font-medium mb-1">車牌號碼</label>
+                        <input type="text" id="veh-edit-plate" placeholder="例: ABC-9988" required class="w-full border border-slate-300 rounded-lg p-2 font-mono uppercase">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-slate-600 font-medium mb-1">自訂車輛名稱</label>
+                    <input type="text" id="veh-edit-name" placeholder="例: 我的休旅車 / 上班通勤車" required class="w-full border border-slate-300 rounded-lg p-2">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-600 font-medium mb-1">車輛類型</label>
+                        <select id="veh-edit-type" onchange="autoSelectVehicleIcon()" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50">
+                            <option value="四輪汽車 (SUV)">四輪汽車 (SUV/轎車)</option>
+                            <option value="四輪汽車 (Hatchback)">四輪汽車 (掀背小車)</option>
+                            <option value="普通重型機車 (Scooter)">普通重型機車 (速克達)</option>
+                            <option value="大型重型機車 (Heavy)">大型重型機車 (黃/紅牌)</option>
+                            <option value="輕型機車 (Moped)">輕型機車 (綠牌/電動)</option>
+                            <option value="商用貨車 (Truck)">商用貨車 (貨卡)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-600 font-medium mb-1">圖示風格</label>
+                        <select id="veh-edit-icon" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50">
+                            <option value="fa-solid fa-car-side">🚗 汽車 (側身)</option>
+                            <option value="fa-solid fa-car">🚘 轎車 (正身)</option>
+                            <option value="fa-solid fa-truck-pickup">🛻 皮卡/休旅</option>
+                            <option value="fa-solid fa-motorcycle">🛵 普通機車</option>
+                            <option value="fa-solid fa-person-biking">🏍️ 重型機車</option>
+                            <option value="fa-solid fa-truck">🚛 貨車</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-slate-600 font-medium mb-1">廠牌與型號</label>
+                    <input type="text" id="veh-edit-model" placeholder="例: Toyota Corolla Cross / Yamaha Force" required class="w-full border border-slate-300 rounded-lg p-2">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-600 font-medium mb-1">出廠年份</label>
+                        <input type="number" id="veh-edit-year" placeholder="2023" required class="w-full border border-slate-300 rounded-lg p-2 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-slate-600 font-medium mb-1">目前里程數 (km)</label>
+                        <input type="number" id="veh-edit-mileage" placeholder="15000" required class="w-full border border-slate-300 rounded-lg p-2 font-mono">
+                    </div>
+                </div>
+
+                <div class="pt-3 flex gap-2">
+                    <button type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg active:scale-98 transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-floppy-disk"></i> 儲存車輛資料
+                    </button>
+                    <button type="button" onclick="closeVehicleEditModal()" class="px-4 py-3 bg-slate-100 text-slate-600 font-semibold rounded-xl hover:bg-slate-200 transition">
+                        取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 3: Vehicle Full Garage Management List Modal -->
+    <div id="modal-veh-list" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-garage text-blue-600"></i> 車庫總覽與管理
+                </h3>
+                <button onclick="closeVehiclesListModal()" class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm">✕</button>
+            </div>
+
+            <div class="flex justify-between items-center text-xs">
+                <span class="text-slate-500">已登記車輛清單</span>
+                <button onclick="closeVehiclesListModal(); openVehicleEditModal(null);" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg flex items-center gap-1 shadow-sm transition">
+                    <i class="fa-solid fa-plus"></i> 新增車輛
+                </button>
+            </div>
+
+            <div id="garage-vehicles-list" class="space-y-2.5">
+                <!-- Generated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 4: Google Sheets API Sync Setup Modal -->
+    <div id="modal-sync" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-4">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i> Google 雲端試算表自動同步設定
+                </h3>
+                <button onclick="closeSyncModal()" class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm">✕</button>
+            </div>
+            
+            <p class="text-xs text-slate-600 leading-relaxed">
+                將本系統串接至您的 **Google Apps Script (GAS)** Web App 網址後，<strong>手機與電腦皆會自動從 Google 試算表載入最新資料，達成 100% 雙向即時同步！</strong>
+            </p>
+
+            <div class="space-y-2 text-xs">
+                <label class="block font-medium text-slate-700">Google Apps Script Web App URL：</label>
+                <input type="url" id="input-gas-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full border border-slate-300 rounded-lg p-2 font-mono text-xs">
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="saveSyncSettings()" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition">
+                    儲存同步設定
+                </button>
+                <button onclick="pullCloudData(true)" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition">
+                    測試並載入雲端
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PWA Service Worker Registration & App Logic -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js').catch(err => console.log(err));
+            });
+        }
+
+        // Initial default datasets
+        const defaultVehicles = [
+            { id: "Car-01", name: "家庭休旅車", plate: "ABC-8899", type: "四輪汽車 (SUV)", model: "Toyota RAV4 2.0", year: 2021, mileage: 35200, icon: "fa-solid fa-car-side" },
+            { id: "Car-02", name: "市區代步小車", plate: "BDE-1234", type: "四輪汽車 (Hatchback)", model: "Honda Fit 1.5", year: 2018, mileage: 68000, icon: "fa-solid fa-car" },
+            { id: "Moto-01", name: "勁戰通勤機車", plate: "MYG-678", type: "普通重型機車", model: "Yamaha Cygnus Gryphus 125", year: 2022, mileage: 12500, icon: "fa-solid fa-motorcycle" },
+            { id: "Moto-02", name: "紅牌運動重機", plate: "LGD-5566", type: "大型重型機車", model: "Honda CB650R", year: 2020, mileage: 18200, icon: "fa-solid fa-person-biking" }
+        ];
+
+        let vehicles = JSON.parse(localStorage.getItem('user_vehicles')) || defaultVehicles;
+        let maintenanceLogs = JSON.parse(localStorage.getItem('user_maintenance_logs')) || [];
+        let fuelLogs = JSON.parse(localStorage.getItem('user_fuel_logs')) || [];
+        let alertSettings = JSON.parse(localStorage.getItem('user_alert_settings')) || [];
+
+        let selectedVehId = vehicles.length > 0 ? vehicles[0].id : null;
+        let googleScriptUrl = localStorage.getItem('google_script_url') || '';
+
+        function formatMoney(num) {
+            return 'NT$ ' + Math.round(num).toLocaleString();
+        }
+
+        // ================= FULL CLOUD SYNC LOGIC (PULL FROM GOOGLE SHEETS) =================
+        async function pullCloudData(isManual = false) {
+            if (!googleScriptUrl) {
+                document.getElementById('sync-status-text').innerText = "未設定雲端";
+                document.getElementById('banner-no-sync').classList.remove('hidden');
+                return;
+            }
+
+            document.getElementById('banner-no-sync').classList.add('hidden');
+            document.getElementById('sync-status-text').innerText = "同步更新中...";
+            const refreshIcon = document.getElementById('icon-refresh');
+            if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+            try {
+                const response = await fetch(googleScriptUrl);
+                const result = await response.json();
+
+                if (result.status === "success" && result.data) {
+                    // Update Vehicles if present in cloud
+                    if (result.data.vehicles && result.data.vehicles.length > 0) {
+                        vehicles = result.data.vehicles;
+                        localStorage.setItem('user_vehicles', JSON.stringify(vehicles));
+                    }
+                    // Update Maintenance if present
+                    if (result.data.maintenance && result.data.maintenance.length > 0) {
+                        maintenanceLogs = result.data.maintenance;
+                        localStorage.setItem('user_maintenance_logs', JSON.stringify(maintenanceLogs));
+                    }
+                    // Update Fuel if present
+                    if (result.data.fuel && result.data.fuel.length > 0) {
+                        fuelLogs = result.data.fuel;
+                        localStorage.setItem('user_fuel_logs', JSON.stringify(fuelLogs));
+                    }
+
+                    document.getElementById('sync-status-text').innerText = "雲端已同步";
+                    document.getElementById('sync-dot').className = "w-2 h-2 rounded-full bg-emerald-400";
+                    initApp();
+                    if (isManual) alert("🎉 已成功自 Google 雲端試算表載入最新資料！");
+                }
+            } catch (err) {
+                console.log("Cloud pull fallback to local cache:", err);
+                document.getElementById('sync-status-text').innerText = "使用本機暫存";
+                document.getElementById('sync-dot').className = "w-2 h-2 rounded-full bg-amber-400";
+            } finally {
+                if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+            }
+        }
+
+        function saveVehiclesToStorage() {
+            localStorage.setItem('user_vehicles', JSON.stringify(vehicles));
+            if (googleScriptUrl) {
+                try {
+                    fetch(googleScriptUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: "SYNC_VEHICLES", data: vehicles })
+                    });
+                } catch(e) { console.log('Sync err:', e); }
+            }
+        }
+
+        function initApp() {
+            renderVehiclePills();
+            if (vehicles.length > 0) {
+                if (!selectedVehId || !vehicles.find(v => v.id === selectedVehId)) {
+                    selectedVehId = vehicles[0].id;
+                }
+                document.getElementById('active-vehicle-card-wrapper').classList.remove('hidden');
+                document.getElementById('no-vehicle-state').classList.add('hidden');
+                selectVehicle(selectedVehId);
+            } else {
+                document.getElementById('active-vehicle-card-wrapper').classList.add('hidden');
+                document.getElementById('no-vehicle-state').classList.remove('hidden');
+            }
+            initModalVehicleOptions();
+            document.getElementById('modal-date').valueAsDate = new Date();
+            if (googleScriptUrl) {
+                document.getElementById('input-gas-url').value = googleScriptUrl;
+            }
+        }
+
+        function renderVehiclePills() {
+            const container = document.getElementById('vehicle-selector-pills');
+            if (vehicles.length === 0) {
+                container.innerHTML = `<span class="text-xs text-slate-400 italic py-2">車庫目前無車輛</span>`;
+                return;
+            }
+            container.innerHTML = vehicles.map(v => {
+                const isSelected = v.id === selectedVehId;
+                return `
+                    <button onclick="selectVehicle('${v.id}')" class="flex-shrink-0 px-3.5 py-2.5 rounded-xl border text-left transition-all ${isSelected ? 'veh-card-active' : 'border-slate-200 bg-white'}">
+                        <div class="flex items-center gap-2">
+                            <i class="${v.icon} ${isSelected ? 'text-blue-600' : 'text-slate-400'} text-sm"></i>
+                            <span class="font-bold text-xs ${isSelected ? 'text-blue-900' : 'text-slate-700'}">${v.name}</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 font-mono mt-0.5">${v.id} • ${Number(v.mileage).toLocaleString()} km</p>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectVehicle(vehId) {
+            selectedVehId = vehId;
+            renderVehiclePills();
+
+            const veh = vehicles.find(v => v.id === vehId);
+            if (!veh) return;
+
+            document.getElementById('active-veh-id').innerText = veh.id;
+            document.getElementById('active-veh-name').innerText = veh.name;
+            document.getElementById('active-veh-model').innerText = `${veh.model} • ${veh.year} 年`;
+            document.getElementById('active-veh-plate').innerText = veh.plate;
+            document.getElementById('active-veh-mileage').innerText = Number(veh.mileage).toLocaleString() + ' km';
+            document.getElementById('active-veh-avatar').innerHTML = `<i class="${veh.icon}"></i>`;
+
+            const vMaints = maintenanceLogs.filter(m => m.vehId === veh.id);
+            const vFuels = fuelLogs.filter(f => f.vehId === veh.id);
+            const vAlerts = alertSettings.filter(a => a.vehId === veh.id);
+
+            const maintCost = vMaints.reduce((acc, m) => acc + (Number(m.partCost) + Number(m.laborCost)), 0);
+            const fuelCost = vFuels.reduce((acc, f) => acc + Number(f.cost), 0);
+            const expCost = (veh.id.startsWith('Car') ? 25000 : 2500);
+            const tco = maintCost + fuelCost + expCost;
+
+            document.getElementById('active-veh-tco').innerText = formatMoney(tco);
+            document.getElementById('stat-maint').innerText = formatMoney(maintCost);
+            document.getElementById('stat-fuel').innerText = formatMoney(fuelCost);
+            document.getElementById('stat-exp').innerText = formatMoney(expCost);
+
+            document.getElementById('badge-maint').innerText = vMaints.length;
+            document.getElementById('badge-alert').innerText = vAlerts.length;
+            document.getElementById('badge-fuel').innerText = vFuels.length;
+
+            renderActiveMaintenanceList(vMaints);
+            renderActiveAlertList(vAlerts, veh.mileage);
+            renderActiveFuelList(vFuels);
+            renderActiveExpenseList(veh);
+        }
+
+        // ================= VEHICLE CRUD =================
+        function openVehicleEditModal(vehId = null) {
+            const isNew = !vehId;
+            document.getElementById('veh-edit-is-new').value = isNew ? "true" : "false";
+            document.getElementById('modal-veh-edit-title').innerHTML = isNew ? 
+                '<i class="fa-solid fa-plus-circle text-blue-600"></i> 新增專屬愛車' : 
+                '<i class="fa-solid fa-pen-to-square text-blue-600"></i> 編輯車輛資料';
+
+            if (isNew) {
+                const nextId = "Car-" + String(vehicles.filter(v => v.id.startsWith('Car')).length + 1).padStart(2, '0');
+                document.getElementById('veh-edit-id').value = nextId;
+                document.getElementById('veh-edit-id').removeAttribute('readonly');
+                document.getElementById('veh-edit-plate').value = "";
+                document.getElementById('veh-edit-name').value = "";
+                document.getElementById('veh-edit-type').value = "四輪汽車 (SUV)";
+                document.getElementById('veh-edit-model').value = "";
+                document.getElementById('veh-edit-year').value = new Date().getFullYear();
+                document.getElementById('veh-edit-mileage').value = 0;
+                document.getElementById('veh-edit-icon').value = "fa-solid fa-car-side";
+            } else {
+                const v = vehicles.find(item => item.id === vehId);
+                if (!v) return;
+                document.getElementById('veh-edit-id').value = v.id;
+                document.getElementById('veh-edit-id').setAttribute('readonly', true);
+                document.getElementById('veh-edit-plate').value = v.plate;
+                document.getElementById('veh-edit-name').value = v.name;
+                document.getElementById('veh-edit-type').value = v.type;
+                document.getElementById('veh-edit-model').value = v.model;
+                document.getElementById('veh-edit-year').value = v.year;
+                document.getElementById('veh-edit-mileage').value = v.mileage;
+                document.getElementById('veh-edit-icon').value = v.icon || "fa-solid fa-car-side";
+            }
+
+            document.getElementById('modal-veh-edit').classList.remove('hidden');
+        }
+
+        function closeVehicleEditModal() {
+            document.getElementById('modal-veh-edit').classList.add('hidden');
+        }
+
+        function autoSelectVehicleIcon() {
+            const type = document.getElementById('veh-edit-type').value;
+            const iconSelect = document.getElementById('veh-edit-icon');
+            if (type.includes('機車') || type.includes('Scooter')) {
+                iconSelect.value = "fa-solid fa-motorcycle";
+            } else if (type.includes('大型重型') || type.includes('Heavy')) {
+                iconSelect.value = "fa-solid fa-person-biking";
+            } else if (type.includes('貨車') || type.includes('Truck')) {
+                iconSelect.value = "fa-solid fa-truck";
+            } else {
+                iconSelect.value = "fa-solid fa-car-side";
+            }
+        }
+
+        function handleSaveVehicle(e) {
+            e.preventDefault();
+            const isNew = document.getElementById('veh-edit-is-new').value === "true";
+            const id = document.getElementById('veh-edit-id').value.trim().toUpperCase();
+            const plate = document.getElementById('veh-edit-plate').value.trim().toUpperCase();
+            const name = document.getElementById('veh-edit-name').value.trim();
+            const type = document.getElementById('veh-edit-type').value;
+            const model = document.getElementById('veh-edit-model').value.trim();
+            const year = Number(document.getElementById('veh-edit-year').value) || new Date().getFullYear();
+            const mileage = Number(document.getElementById('veh-edit-mileage').value) || 0;
+            const icon = document.getElementById('veh-edit-icon').value;
+
+            if (isNew) {
+                if (vehicles.some(v => v.id === id)) {
+                    alert("車輛代號已存在，請更換！");
+                    return;
+                }
+                const newVeh = { id, name, plate, type, model, year, mileage, icon };
+                vehicles.push(newVeh);
+                selectedVehId = id;
+            } else {
+                const index = vehicles.findIndex(v => v.id === id);
+                if (index !== -1) {
+                    vehicles[index] = { ...vehicles[index], name, plate, type, model, year, mileage, icon };
+                }
+            }
+
+            saveVehiclesToStorage();
+            closeVehicleEditModal();
+            initApp();
+            alert(isNew ? "🎉 車輛新增成功！" : "✅ 車輛更新完成！");
+        }
+
+        function editCurrentVehicle() {
+            if (!selectedVehId) return;
+            openVehicleEditModal(selectedVehId);
+        }
+
+        function deleteCurrentVehicle() {
+            if (!selectedVehId) return;
+            deleteVehicle(selectedVehId);
+        }
+
+        function deleteVehicle(vehId) {
+            const v = vehicles.find(item => item.id === vehId);
+            if (!v) return;
+
+            if (!confirm(`確定要刪除車輛「${v.name} (${v.id})」嗎？`)) return;
+
+            vehicles = vehicles.filter(item => item.id !== vehId);
+            maintenanceLogs = maintenanceLogs.filter(m => m.vehId !== vehId);
+            fuelLogs = fuelLogs.filter(f => f.vehId !== vehId);
+            alertSettings = alertSettings.filter(a => a.vehId !== vehId);
+
+            localStorage.setItem('user_maintenance_logs', JSON.stringify(maintenanceLogs));
+            localStorage.setItem('user_fuel_logs', JSON.stringify(fuelLogs));
+            saveVehiclesToStorage();
+
+            selectedVehId = vehicles.length > 0 ? vehicles[0].id : null;
+            initApp();
+            renderGarageListModal();
+            alert("🗑️ 車輛已刪除！");
+        }
+
+        function openVehiclesListModal() {
+            renderGarageListModal();
+            document.getElementById('modal-veh-list').classList.remove('hidden');
+        }
+
+        function closeVehiclesListModal() {
+            document.getElementById('modal-veh-list').classList.add('hidden');
+        }
+
+        function renderGarageListModal() {
+            const container = document.getElementById('garage-vehicles-list');
+            if (vehicles.length === 0) {
+                container.innerHTML = `<div class="p-6 text-center text-slate-400 text-xs">車庫目前無車輛</div>`;
+                return;
+            }
+            container.innerHTML = vehicles.map(v => `
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-lg">
+                            <i class="${v.icon}"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-mono font-bold text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">${v.id}</span>
+                                <h4 class="font-bold text-slate-800 text-xs">${v.name}</h4>
+                            </div>
+                            <p class="text-[11px] text-slate-500 font-mono mt-0.5">${v.plate} • ${v.model} • ${Number(v.mileage).toLocaleString()} km</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="closeVehiclesListModal(); openVehicleEditModal('${v.id}')" title="編輯" class="w-8 h-8 rounded-lg bg-white border border-slate-200 hover:bg-blue-50 hover:text-blue-600 text-slate-600 flex items-center justify-center text-xs transition">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button onclick="deleteVehicle('${v.id}')" title="刪除" class="w-8 h-8 rounded-lg bg-white border border-slate-200 hover:bg-red-50 hover:text-red-600 text-slate-600 flex items-center justify-center text-xs transition">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderActiveMaintenanceList(logs) {
+            const list = document.getElementById('list-maint');
+            if (logs.length === 0) {
+                list.innerHTML = `<div class="p-6 text-center text-slate-400 text-xs">此車輛尚無保養紀錄，點擊上方按鈕新增</div>`;
+                return;
+            }
+            list.innerHTML = logs.map(m => `
+                <div class="p-3 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold">${m.cat}</span>
+                        <span class="font-mono font-black text-indigo-700 text-xs">${formatMoney(Number(m.partCost) + Number(m.laborCost))}</span>
+                    </div>
+                    <h4 class="font-bold text-slate-800 text-xs">${m.desc}</h4>
+                    <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                        <span><i class="fa-solid fa-calendar-day mr-1"></i>${m.date}</span>
+                        <span><i class="fa-solid fa-gauge-high mr-1"></i>${Number(m.mileage).toLocaleString()} km</span>
+                        <span><i class="fa-solid fa-store mr-1"></i>${m.shop}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderActiveAlertList(alerts, curKm) {
+            const list = document.getElementById('list-alert');
+            list.innerHTML = `
+                <div class="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-800 text-xs">全合成引擎機油保養</span>
+                        <span class="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[10px] font-bold">✅ 正常運行中</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div class="h-1.5 rounded-full bg-emerald-500" style="width: 80%"></div>
+                    </div>
+                    <div class="flex items-center justify-between text-[10px] text-slate-400">
+                        <span>目前里程: ${Number(curKm).toLocaleString()} km</span>
+                        <span>建議更換週期: 5,000 km</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderActiveFuelList(fuels) {
+            const list = document.getElementById('list-fuel');
+            if (fuels.length === 0) {
+                list.innerHTML = `<div class="p-6 text-center text-slate-400 text-xs">目前尚無加油紀錄</div>`;
+                return;
+            }
+            list.innerHTML = fuels.map(f => `
+                <div class="p-3 bg-white rounded-xl border border-slate-200 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-800 text-xs">${f.fuelType} • ${f.volume} L</span>
+                        <span class="font-mono font-bold text-amber-700 text-xs">${formatMoney(f.cost)}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                        <span>${f.date}</span>
+                        <span class="font-bold text-emerald-600">${f.kml > 0 ? f.kml + ' km/L' : '-'}</span>
+                        <span>每公里 $${f.costPerKm || '-'}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderActiveExpenseList(veh) {
+            const list = document.getElementById('list-exp');
+            list.innerHTML = `
+                <div class="p-3 bg-white rounded-xl border border-slate-200 space-y-2 text-xs">
+                    <div class="flex justify-between items-center"><span class="text-slate-500">年度牌照稅</span><strong class="font-mono text-slate-800">${veh.id.startsWith('Car') ? 'NT$ 11,230' : '免稅'}</strong></div>
+                    <div class="flex justify-between items-center"><span class="text-slate-500">年度燃料使用費</span><strong class="font-mono text-slate-800">${veh.id.startsWith('Car') ? 'NT$ 6,180' : 'NT$ 900 (2年)'}</strong></div>
+                    <div class="flex justify-between items-center"><span class="text-slate-500">車險保單</span><strong class="font-mono text-emerald-700">${veh.id.startsWith('Car') ? '乙式車體/超額責任險' : '強制險+第三人責任險'}</strong></div>
+                </div>
+            `;
+        }
+
+        function switchTab(tabKey) {
+            const tabs = ['maint', 'alert', 'fuel', 'exp'];
+            tabs.forEach(t => {
+                const btn = document.getElementById('tab-' + t);
+                const content = document.getElementById('content-' + t);
+                if (t === tabKey) {
+                    btn.classList.add('active');
+                    content.classList.remove('hidden');
+                } else {
+                    btn.classList.remove('active');
+                    content.classList.add('hidden');
+                }
+            });
+        }
+
+        function initModalVehicleOptions() {
+            const select = document.getElementById('modal-veh-select');
+            select.innerHTML = vehicles.map(v => `<option value="${v.id}">${v.id} - ${v.name} (${v.plate})</option>`).join('');
+        }
+
+        function openAddModal(type) {
+            if (vehicles.length === 0) {
+                alert("請先新增至少一台車輛！");
+                openVehicleEditModal(null);
+                return;
+            }
+            document.getElementById('modal-veh-select').value = selectedVehId;
+            document.getElementById('modal-add').classList.remove('hidden');
+        }
+
+        function closeAddModal() {
+            document.getElementById('modal-add').classList.add('hidden');
+        }
+
+        function openSyncModal() {
+            document.getElementById('modal-sync').classList.remove('hidden');
+        }
+
+        function closeSyncModal() {
+            document.getElementById('modal-sync').classList.add('hidden');
+        }
+
+        function saveSyncSettings() {
+            const url = document.getElementById('input-gas-url').value.trim();
+            googleScriptUrl = url;
+            localStorage.setItem('google_script_url', url);
+            alert("✅ 雲端同步設定已儲存！現在將立即同步雲端資料...");
+            closeSyncModal();
+            pullCloudData(true);
+        }
+
+        async function handleSaveMaintenance(e) {
+            e.preventDefault();
+            const vehId = document.getElementById('modal-veh-select').value;
+            const date = document.getElementById('modal-date').value;
+            const mileage = Number(document.getElementById('modal-mileage').value);
+            const cat = document.getElementById('modal-cat').value;
+            const desc = document.getElementById('modal-desc').value;
+            const partCost = Number(document.getElementById('modal-partcost').value) || 0;
+            const laborCost = Number(document.getElementById('modal-laborcost').value) || 0;
+            const nextMileage = Number(document.getElementById('modal-nextkm').value) || (mileage + 5000);
+            const shop = document.getElementById('modal-shop').value || '未填寫店家';
+
+            const newLog = {
+                id: 'M-' + String(maintenanceLogs.length + 1).padStart(3, '0'),
+                date, vehId, mileage, cat, desc, partCost, laborCost, nextMileage, shop, note: ''
+            };
+
+            maintenanceLogs.unshift(newLog);
+            localStorage.setItem('user_maintenance_logs', JSON.stringify(maintenanceLogs));
+
+            const targetVeh = vehicles.find(v => v.id === vehId);
+            if (targetVeh && mileage > targetVeh.mileage) {
+                targetVeh.mileage = mileage;
+                saveVehiclesToStorage();
+            }
+
+            if (googleScriptUrl) {
+                try {
+                    fetch(googleScriptUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: "ADD_MAINTENANCE", data: newLog })
+                    });
+                } catch (err) { console.log(err); }
+            }
+
+            closeAddModal();
+            selectVehicle(vehId);
+            alert("✅ 保養紀錄新增成功！已同步至 Google 雲端試算表！");
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initApp();
+            pullCloudData(false); // Auto pull cloud data on page open
+        });
+    </script>
+</body>
+</html>
