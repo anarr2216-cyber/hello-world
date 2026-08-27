@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vehicle-pwa-v3';
+const CACHE_NAME = 'vehicle-pwa-v5';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -24,7 +24,6 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Always fetch fresh data for API calls, use cache fallback for assets
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request))
   );

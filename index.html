@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>車輛專屬保養管理系統 (全自訂分類版)</title>
+    <title>車輛專屬保養管理系統 (複選分類版)</title>
     
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#0f172a">
@@ -22,6 +22,10 @@
         .veh-card-active { border-color: #2563eb !important; background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15); }
         .subtab-btn.active { border-bottom: 2px solid #2563eb; color: #1d4ed8; font-weight: 700; }
         .custom-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* Custom checkbox styles for pills */
+        input[type="checkbox"]:checked + span { color: #1d4ed8; font-weight: 700; }
+        label:has(input[type="checkbox"]:checked) { background-color: #eff6ff; border-color: #93c5fd; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col selection:bg-blue-500 selection:text-white">
@@ -35,7 +39,7 @@
                 </div>
                 <div>
                     <h1 class="font-bold text-sm sm:text-base leading-tight">車輛獨立保養管理</h1>
-                    <p class="text-[10px] text-blue-300">支援自訂保養分類 & 雲端同步</p>
+                    <p class="text-[10px] text-blue-300">保養分類複選 & 自訂管理</p>
                 </div>
             </div>
             <div class="flex items-center space-x-2">
@@ -118,24 +122,19 @@
             </div>
 
             <div class="p-3 sm:p-4">
-                <!-- 1. Maintenance Content -->
                 <div id="content-maint" class="space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-bold text-slate-700">獨立保養歷程工單</span>
                         <div class="flex gap-2">
-                            <button onclick="openCategoryManager()" class="text-xs text-slate-500 hover:text-slate-800"><i class="fa-solid fa-list text-slate-400"></i> 管理分類</button>
-                            <span class="text-slate-300">|</span>
                             <button onclick="openAddModal('maint')" class="text-xs font-bold text-blue-600"><i class="fa-solid fa-plus-circle"></i> 新增紀錄</button>
                         </div>
                     </div>
                     <div id="list-maint" class="space-y-2.5"></div>
                 </div>
-                <!-- 2. Alerts Content -->
                 <div id="content-alert" class="hidden space-y-3">
                     <div class="flex items-center justify-between"><span class="text-xs font-bold text-slate-700">耗材壽命動態監測</span></div>
                     <div id="list-alert" class="space-y-2.5"></div>
                 </div>
-                <!-- 3. Fuel Content -->
                 <div id="content-fuel" class="hidden space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-bold text-slate-700">加油與油耗紀錄</span>
@@ -143,7 +142,6 @@
                     </div>
                     <div id="list-fuel" class="space-y-2.5"></div>
                 </div>
-                <!-- 4. Expenses Content -->
                 <div id="content-exp" class="hidden space-y-3">
                     <div class="flex items-center justify-between"><span class="text-xs font-bold text-slate-700">專屬稅費與保險</span></div>
                     <div id="list-exp" class="space-y-2.5"></div>
@@ -167,7 +165,7 @@
         <button onclick="openVehiclesListModal()" class="flex flex-col items-center hover:text-indigo-600 active:scale-95 transition"><i class="fa-solid fa-garage text-base mb-0.5 text-indigo-600"></i><span>車庫管理</span></button>
     </nav>
 
-    <!-- Modal 1: Quick Add Maintenance Record -->
+    <!-- Modal 1: Quick Add Maintenance Record (Multi-select Categories) -->
     <div id="modal-add" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
         <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b pb-3">
@@ -183,13 +181,18 @@
                     <div><label class="block text-slate-600 font-medium mb-1">保養日期</label><input type="date" id="modal-date" required class="w-full border border-slate-300 rounded-lg p-2 font-mono"></div>
                     <div><label class="block text-slate-600 font-medium mb-1">保養里程 (km)</label><input type="number" id="modal-mileage" required class="w-full border border-slate-300 rounded-lg p-2 font-mono"></div>
                 </div>
+                
+                <!-- Multi-select Categories -->
                 <div>
-                    <div class="flex justify-between mb-1">
-                        <label class="block text-slate-600 font-medium">保養分類</label>
-                        <button type="button" onclick="openCategoryManager()" class="text-[10px] text-blue-600 underline">編輯分類</button>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="block text-slate-600 font-medium">保養分類 (可複選)</label>
+                        <button type="button" onclick="openCategoryManager()" class="text-[10px] text-blue-600 flex items-center gap-1 hover:underline"><i class="fa-solid fa-tags"></i>管理分類清單</button>
                     </div>
-                    <select id="modal-cat" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50"></select>
+                    <div id="modal-cat-container" class="flex flex-wrap gap-2 p-2.5 border border-slate-300 rounded-lg bg-slate-50 max-h-32 overflow-y-auto">
+                        <!-- Checkboxes populated by JS -->
+                    </div>
                 </div>
+
                 <div><label class="block text-slate-600 font-medium mb-1">具體保養項目說明</label><input type="text" id="modal-desc" placeholder="例如: 更換 0W-20 機油" required class="w-full border border-slate-300 rounded-lg p-2"></div>
                 <div class="grid grid-cols-2 gap-3">
                     <div><label class="block text-slate-600 font-medium mb-1">零件費用 (NT$)</label><input type="number" id="modal-partcost" value="0" class="w-full border border-slate-300 rounded-lg p-2 font-mono"></div>
@@ -211,24 +214,19 @@
                 <h3 class="font-bold text-slate-800 text-base flex items-center gap-2"><i class="fa-solid fa-tags text-indigo-600"></i> 管理保養分類</h3>
                 <button onclick="closeCategoryManager()" class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm">✕</button>
             </div>
-            
             <div class="flex gap-2 shrink-0">
                 <input type="text" id="new-category-input" placeholder="輸入新分類名稱" class="flex-grow border border-slate-300 rounded-lg p-2 text-xs">
                 <button onclick="addCategory()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold shadow hover:bg-blue-700">新增</button>
             </div>
-
             <div class="overflow-y-auto flex-grow bg-slate-50 rounded-xl p-3 border border-slate-200">
-                <ul id="category-list-container" class="space-y-2">
-                    <!-- Populated by JS -->
-                </ul>
+                <ul id="category-list-container" class="space-y-2"></ul>
             </div>
-            <p class="text-[10px] text-slate-400 text-center shrink-0">注意：刪除分類不會影響過去已儲存的歷史紀錄。</p>
+            <p class="text-[10px] text-slate-400 text-center shrink-0">提示：此處修改分類，即可在新增保養時進行複選勾選。</p>
         </div>
     </div>
 
     <!-- Modal 2: Vehicle CRUD Edit/Create Modal -->
     <div id="modal-veh-edit" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-        <!-- Kept exactly the same as v3... -->
         <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b pb-3">
                 <h3 id="modal-veh-edit-title" class="font-bold text-slate-800 text-base flex items-center gap-2"><i class="fa-solid fa-car text-blue-600"></i> 新增/編輯車輛</h3>
@@ -278,7 +276,7 @@
         </div>
     </div>
 
-    <!-- Modal 3 & 4 (Garage List & Sync) kept same as v3 -->
+    <!-- Modal 3 & 4 (Garage List & Sync) -->
     <div id="modal-veh-list" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 max-h-[85vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b pb-3">
@@ -311,15 +309,13 @@
             window.addEventListener('load', () => { navigator.serviceWorker.register('./service-worker.js').catch(err => console.log(err)); });
         }
 
-        // ================= CATEGORIES CRUD =================
-        const defaultCategories = [
-            "定期機油保養", "傳動與變速箱", "底盤與懸吊/輪胎", "冷卻與電系", "其他耗材維修", "美容與清潔"
-        ];
+        // ================= CATEGORIES CRUD & MULTI-SELECT =================
+        const defaultCategories = ["機油", "機油濾芯", "齒輪油/變速箱油", "空氣濾清器", "冷氣濾網", "火星塞", "傳動皮帶/鏈條", "煞車皮/來令片", "煞車油", "輪胎", "電瓶", "水箱精", "洗車/鍍膜/美容", "其他維修"];
         let maintenanceCategories = JSON.parse(localStorage.getItem('user_maint_categories')) || defaultCategories;
 
         function saveCategories() {
             localStorage.setItem('user_maint_categories', JSON.stringify(maintenanceCategories));
-            updateCategoryDropdown();
+            updateCategoryCheckboxes();
         }
 
         function openCategoryManager() {
@@ -336,7 +332,7 @@
             container.innerHTML = maintenanceCategories.map((cat, index) => `
                 <li class="flex items-center justify-between bg-white px-3 py-2 rounded border border-slate-200 shadow-sm text-xs">
                     <span class="font-bold text-slate-700">${cat}</span>
-                    <button onclick="deleteCategory(${index})" class="text-slate-400 hover:text-red-500 transition"><i class="fa-solid fa-trash-can"></i></button>
+                    <button type="button" onclick="deleteCategory(${index})" class="text-slate-400 hover:text-red-500 transition"><i class="fa-solid fa-trash-can"></i></button>
                 </li>
             `).join('');
         }
@@ -363,16 +359,20 @@
             }
         }
 
-        function updateCategoryDropdown() {
-            const select = document.getElementById('modal-cat');
-            if (select) {
-                select.innerHTML = maintenanceCategories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+        function updateCategoryCheckboxes() {
+            const container = document.getElementById('modal-cat-container');
+            if (container) {
+                container.innerHTML = maintenanceCategories.map(cat => `
+                    <label class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs cursor-pointer hover:bg-blue-50 transition shadow-sm select-none">
+                        <input type="checkbox" name="maint-category" value="${cat}" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300">
+                        <span class="text-slate-700 font-medium">${cat}</span>
+                    </label>
+                `).join('');
             }
         }
 
         // Initialize default datasets
-        const defaultVehicles = [{ id: "Car-01", name: "家庭休旅車", plate: "ABC-8899", type: "四輪汽車 (SUV)", model: "Toyota RAV4 2.0", year: 2021, mileage: 35200, icon: "fa-solid fa-car-side" }];
-        let vehicles = JSON.parse(localStorage.getItem('user_vehicles')) || defaultVehicles;
+        let vehicles = JSON.parse(localStorage.getItem('user_vehicles')) || [{ id: "Car-01", name: "家庭休旅車", plate: "ABC-8899", type: "四輪汽車 (SUV)", model: "Toyota RAV4 2.0", year: 2021, mileage: 35200, icon: "fa-solid fa-car-side" }];
         let maintenanceLogs = JSON.parse(localStorage.getItem('user_maintenance_logs')) || [];
         let fuelLogs = JSON.parse(localStorage.getItem('user_fuel_logs')) || [];
         let alertSettings = JSON.parse(localStorage.getItem('user_alert_settings')) || [];
@@ -420,7 +420,7 @@
                 document.getElementById('no-vehicle-state').classList.remove('hidden');
             }
             initModalVehicleOptions();
-            updateCategoryDropdown();
+            updateCategoryCheckboxes();
             document.getElementById('modal-date').valueAsDate = new Date();
             if (googleScriptUrl) document.getElementById('input-gas-url').value = googleScriptUrl;
         }
@@ -463,15 +463,23 @@
         function renderActiveMaintenanceList(logs) {
             const list = document.getElementById('list-maint');
             if (logs.length === 0) { list.innerHTML = `<div class="p-6 text-center text-slate-400 text-xs">尚無保養紀錄</div>`; return; }
-            list.innerHTML = logs.map(m => `
+            list.innerHTML = logs.map(m => {
+                // Handle multi-select categories (split by ' / ' and render as badges)
+                const catStr = m.cat || '未分類';
+                const catBadges = catStr.split(' / ').map(c => `<span class="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-100 text-blue-700 text-[10px] font-bold whitespace-nowrap">${c}</span>`).join('');
+
+                return `
                 <div class="p-3 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1.5">
-                    <div class="flex items-center justify-between"><span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold">${m.cat}</span><span class="font-mono font-black text-indigo-700 text-xs">${formatMoney(Number(m.partCost) + Number(m.laborCost))}</span></div>
+                    <div class="flex items-center justify-between">
+                        <div class="flex flex-wrap items-center gap-1">${catBadges}</div>
+                        <span class="font-mono font-black text-indigo-700 text-xs">${formatMoney(Number(m.partCost) + Number(m.laborCost))}</span>
+                    </div>
                     <h4 class="font-bold text-slate-800 text-xs">${m.desc}</h4>
                     <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono"><span>${m.date}</span><span>${Number(m.mileage).toLocaleString()} km</span><span>${m.shop}</span></div>
-                </div>`).join('');
+                </div>`;
+            }).join('');
         }
 
-        // Misc necessary functions (omitting full duplicate implementation of fuel/exp/alerts for brevity, but retaining all core structural functions)
         function switchTab(tabKey) {
             ['maint', 'alert', 'fuel', 'exp'].forEach(t => {
                 document.getElementById('tab-' + t).classList.toggle('active', t === tabKey);
@@ -479,7 +487,13 @@
             });
         }
         function initModalVehicleOptions() { document.getElementById('modal-veh-select').innerHTML = vehicles.map(v => `<option value="${v.id}">${v.id} - ${v.name}</option>`).join(''); }
-        function openAddModal() { document.getElementById('modal-veh-select').value = selectedVehId; document.getElementById('modal-add').classList.remove('hidden'); }
+        
+        function openAddModal() { 
+            document.getElementById('modal-veh-select').value = selectedVehId; 
+            // Uncheck all categories
+            document.querySelectorAll('input[name="maint-category"]').forEach(cb => cb.checked = false);
+            document.getElementById('modal-add').classList.remove('hidden'); 
+        }
         function closeAddModal() { document.getElementById('modal-add').classList.add('hidden'); }
         function openSyncModal() { document.getElementById('modal-sync').classList.remove('hidden'); }
         function closeSyncModal() { document.getElementById('modal-sync').classList.add('hidden'); }
@@ -492,13 +506,23 @@
 
         async function handleSaveMaintenance(e) {
             e.preventDefault();
+
+            // Get selected categories
+            const catCheckboxes = document.querySelectorAll('input[name="maint-category"]:checked');
+            const catValues = Array.from(catCheckboxes).map(cb => cb.value);
+            
+            if (catValues.length === 0) {
+                alert("請至少勾選一項保養分類！");
+                return;
+            }
+
             const vehId = document.getElementById('modal-veh-select').value;
             const newLog = {
                 id: 'M-' + String(maintenanceLogs.length + 1).padStart(3, '0'),
                 date: document.getElementById('modal-date').value,
                 vehId: vehId,
                 mileage: Number(document.getElementById('modal-mileage').value),
-                cat: document.getElementById('modal-cat').value,
+                cat: catValues.join(" / "), // Join multiple categories
                 desc: document.getElementById('modal-desc').value,
                 partCost: Number(document.getElementById('modal-partcost').value) || 0,
                 laborCost: Number(document.getElementById('modal-laborcost').value) || 0,
@@ -506,6 +530,7 @@
                 shop: document.getElementById('modal-shop').value || '',
                 note: ''
             };
+
             maintenanceLogs.unshift(newLog);
             localStorage.setItem('user_maintenance_logs', JSON.stringify(maintenanceLogs));
 
@@ -522,10 +547,9 @@
             closeAddModal(); selectVehicle(vehId);
         }
 
-        // Open/Close Veh Modals
-        function openVehicleEditModal(id){ /* ... retained logic ... */ document.getElementById('modal-veh-edit').classList.remove('hidden'); }
+        function openVehicleEditModal(id){ document.getElementById('modal-veh-edit').classList.remove('hidden'); }
         function closeVehicleEditModal(){ document.getElementById('modal-veh-edit').classList.add('hidden'); }
-        function openVehiclesListModal() { /* ... retained ... */ document.getElementById('modal-veh-list').classList.remove('hidden'); }
+        function openVehiclesListModal() { document.getElementById('modal-veh-list').classList.remove('hidden'); }
         function closeVehiclesListModal() { document.getElementById('modal-veh-list').classList.add('hidden'); }
 
         document.addEventListener('DOMContentLoaded', () => { initApp(); pullCloudData(false); });
