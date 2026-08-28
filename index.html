@@ -136,7 +136,7 @@
         .reminder-list { list-style: none; padding: 0; margin: 0; }
         .reminder-item {
             display: flex; justify-content: space-between; align-items: center;
-            background: #fff; padding: 10px 15px; margin-bottom: 8px; border: 1px solid #f1e2b3;
+            background: #fff; padding: 10px 15px; margin-bottom: 8px; border: 1px solid #f1e2b3; border-radius: 4px;
         }
         .rm-info { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
         .rm-info strong { color: #2c3e50; }
@@ -201,7 +201,7 @@
         <div class="spinner"></div>
         <h3 style="color: #2c3e50;">正在與 Google 雲端同步資料...</h3>
         <p style="color: #7f8c8d;">這可能需要幾秒鐘的時間</p>
-        <button onclick="forceCloseLoading()" style="margin-top: 20px; padding: 10px 20px; background-color: #95a5a6; border-radius: 5px; font-size: 14px;">取消同步並使用本機資料</button>
+        <button onclick="forceCloseLoading()" style="margin-top: 20px; padding: 10px 20px; background-color: #95a5a6; border-radius: 5px; font-size: 14px; width: auto;">取消同步並使用本機資料</button>
     </div>
 
     <!-- 狀態提示 -->
@@ -279,14 +279,36 @@
         <div class="modal-content">
             <div class="modal-header"><h2>🔔 設定保養提醒</h2><span class="close" onclick="closeReminderModal()">&times;</span></div>
             <form id="reminderForm" style="display: flex; flex-direction: column; gap: 15px; margin: 0; padding:0; background:none; border:none;">
-                <select id="rmItemSelect" required></select>
-                <select id="rmTypeSelect" onchange="toggleReminderInput()" required>
-                    <option value="mileage">依里程數 (到達指定里程)</option>
-                    <option value="date">依日期 (到達指定日期)</option>
-                </select>
-                <input type="number" id="rmMileageInput" placeholder="目標里程數 (例如：50000)">
-                <input type="date" id="rmDateInput" style="display:none;">
-                <button type="submit">💾 儲存提醒</button>
+                <div>
+                    <label style="display:block; margin-bottom:5px; color:#2c3e50; font-weight:bold;">選擇提醒項目：</label>
+                    <select id="rmItemSelect" required></select>
+                </div>
+                
+                <div>
+                    <label style="display:block; margin-bottom:5px; color:#2c3e50; font-weight:bold;">提醒條件：</label>
+                    <select id="rmTypeSelect" onchange="toggleReminderInput()" required>
+                        <option value="mileage">依里程數 (到達指定里程)</option>
+                        <option value="date">依日期 (到達指定日期)</option>
+                    </select>
+                </div>
+
+                <div id="rmMileageDiv">
+                    <label style="display:block; margin-bottom:5px; color:#2c3e50; font-weight:bold;">目標里程數 (km)：</label>
+                    <input type="number" id="rmMileageInput" placeholder="例如：50000">
+                </div>
+
+                <div id="rmDateDiv" style="display:none;">
+                    <label style="display:block; margin-bottom:5px; color:#2c3e50; font-weight:bold;">目標日期：</label>
+                    <input type="date" id="rmDateInput">
+                </div>
+                
+                <!-- 新增：備註描述欄位 -->
+                <div>
+                    <label style="display:block; margin-bottom:5px; color:#2c3e50; font-weight:bold;">備註描述 (選填)：</label>
+                    <input type="text" id="rmDescInput" placeholder="例如：準備換新、調胎等...">
+                </div>
+
+                <button type="submit" style="margin-top: 10px;">💾 儲存提醒</button>
             </form>
         </div>
     </div>
@@ -296,7 +318,6 @@
         // ⚠️ 請將下方的網址替換成您剛剛在 Google 部署獲得的 Web App URL
         // ==========================================
         const GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycbxc__HNmQYdmPCSqvuRGKlKZjM1deshY6sFQFJSXZyRqsNHlwqv8quV5xJ59a-h4VObXg/exec"; 
-        
         
         // DOM 與基礎資料結構
         let vehicles = [];
@@ -319,29 +340,19 @@
         }
 
         // ================= 雲端同步系統 =================
-        // 初始化：從 Google 試算表讀取資料
         async function initData() {
             if (!GOOGLE_API_URL || GOOGLE_API_URL.includes("請將您的")) {
-                alert("⚠️ 尚未設定 Google API URL！\n請用文字編輯器打開 index.html，在下方填入您的 Web App URL。\n目前將暫時使用瀏覽器本機資料。");
                 loadLocalBackup();
                 return;
             }
 
             try {
-                // 使用 JSONP 處理跨域問題 (CORS) 或是加上 mode: 'cors'
-                // 如果是直接 fetch 遇到 CORS 錯誤，通常是 Google Apps Script 沒有正確回傳 CORS header
-                // 這裡嘗試直接 fetch，並處理錯誤
                 const response = await fetch(GOOGLE_API_URL, {
                      method: 'GET',
-                     headers: {
-                        'Accept': 'application/json'
-                     }
+                     headers: { 'Accept': 'application/json' }
                 });
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const data = await response.json();
                 
                 if (data && typeof data === 'object') {
@@ -349,35 +360,27 @@
                     recordsData = data.recordsData || {};
                     remindersData = data.remindersData || {};
                     customItems = data.customItems || [];
-                    
                     currentActiveVehicle = vehicles[0] || null;
                     
-                    // 將雲端資料也備份一份到本機
                     saveToLocalStorage();
                     renderAll();
                 } else {
-                    throw new Error("Invalid data format received from Google Script.");
+                    throw new Error("Invalid data format.");
                 }
-                
             } catch (error) {
                 console.error("Fetch error:", error);
-                alert("❌ 從雲端讀取失敗，可能是跨域(CORS)問題或網址錯誤。\n請確認 Google Apps Script 有回傳 JSON，且部署權限設定為「所有人」。\n\n目前已載入本機備份資料。");
                 loadLocalBackup();
             } finally {
-                loadingOverlay.style.display = 'none'; // 隱藏載入畫面
+                loadingOverlay.style.display = 'none';
                 document.getElementById('date').value = getTodayStr();
                 document.getElementById('rmDateInput').value = getTodayStr();
             }
         }
 
-        // 將變更寫入 Google 試算表
         async function syncDataToServer() {
-            // 先存本機備份
             saveToLocalStorage();
-            
             if (!GOOGLE_API_URL || GOOGLE_API_URL.includes("請將您的")) return;
 
-            // 顯示同步中提示
             syncStatus.textContent = '🔄 雲端同步中...';
             syncStatus.style.background = '#f39c12';
             syncStatus.style.display = 'block';
@@ -390,20 +393,13 @@
             };
 
             try {
-                // 發送 POST 請求
                 const response = await fetch(GOOGLE_API_URL, {
                     method: 'POST',
-                    // 注意：Google Apps Script 的 doPost 有時候處理 Content-Type: application/json 會有 CORS preflight 請求問題
-                    // 所以改用 text/plain，然後在 Apps Script 裡面直接用 JSON.parse(e.postData.contents) 解析
-                    headers: {
-                        'Content-Type': 'text/plain;charset=utf-8' 
-                    },
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify(payload)
                 });
                 
-                if (!response.ok) {
-                     throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
                 syncStatus.textContent = '✅ 已同步至雲端';
                 syncStatus.style.background = '#2ecc71';
@@ -575,15 +571,21 @@
             reminders.forEach((rm, index) => {
                 let isOverdue = (rm.type === 'mileage' && currentMileage >= rm.target) || (rm.type === 'date' && today >= rm.target);
                 let desc = rm.type === 'mileage' ? `目標：${Number(rm.target).toLocaleString()} km (進度: ${currentMileage.toLocaleString()} km)` : `目標日期：${rm.target}`;
+                
+                // 若有設定備註，則顯示出來
+                let extraDescHtml = rm.desc ? `<div style="width:100%; margin-top:6px; font-size:13px; color:#7f8c8d;">📝 備註：${rm.desc}</div>` : '';
 
                 const li = document.createElement('li');
                 li.className = 'reminder-item ' + (isOverdue ? 'overdue' : '');
                 li.innerHTML = `
-                    <div class="rm-info">
-                        <strong>${rm.item}</strong> <span>${desc}</span>
-                        ${isOverdue ? '<span class="badge-alert">⚠️ 該保養囉！</span>' : ''}
+                    <div style="flex:1;">
+                        <div class="rm-info">
+                            <strong>${rm.item}</strong> <span>${desc}</span>
+                            ${isOverdue ? '<span class="badge-alert">⚠️ 該保養囉！</span>' : ''}
+                        </div>
+                        ${extraDescHtml}
                     </div>
-                    <button class="btn-success" style="font-size:12px; padding:6px 12px;" onclick="completeReminder(${index})">✅ 完成移除</button>`;
+                    <button class="btn-success" style="font-size:12px; padding:6px 12px; margin-left:10px;" onclick="completeReminder(${index})">✅ 完成移除</button>`;
                 reminderList.appendChild(li);
             });
         }
@@ -591,16 +593,24 @@
         function openReminderModal() {
             document.getElementById('rmItemSelect').innerHTML = customItems.map(item => `<option value="${item}">${item}</option>`).join('');
             document.getElementById('rmMileageInput').value = getCurrentMaxMileage() + 1000;
+            document.getElementById('rmDescInput').value = ''; // 每次開啟都清空備註欄位
             document.getElementById('reminderModal').style.display = "block";
         }
         function closeReminderModal() { document.getElementById('reminderModal').style.display = "none"; }
 
         window.toggleReminderInput = function() {
             const type = document.getElementById('rmTypeSelect').value;
-            document.getElementById('rmMileageInput').style.display = type === 'mileage' ? 'block' : 'none';
-            document.getElementById('rmDateInput').style.display = type === 'date' ? 'block' : 'none';
-            document.getElementById('rmMileageInput').required = type === 'mileage';
-            document.getElementById('rmDateInput').required = type === 'date';
+            if(type === 'mileage') {
+                document.getElementById('rmMileageDiv').style.display = 'block';
+                document.getElementById('rmDateDiv').style.display = 'none';
+                document.getElementById('rmMileageInput').required = true;
+                document.getElementById('rmDateInput').required = false;
+            } else {
+                document.getElementById('rmMileageDiv').style.display = 'none';
+                document.getElementById('rmDateDiv').style.display = 'block';
+                document.getElementById('rmMileageInput').required = false;
+                document.getElementById('rmDateInput').required = true;
+            }
         }
 
         document.getElementById('reminderForm').addEventListener('submit', function(e) {
@@ -610,7 +620,8 @@
             remindersData[currentActiveVehicle].push({
                 item: document.getElementById('rmItemSelect').value,
                 type: type,
-                target: type === 'mileage' ? Number(document.getElementById('rmMileageInput').value) : document.getElementById('rmDateInput').value
+                target: type === 'mileage' ? Number(document.getElementById('rmMileageInput').value) : document.getElementById('rmDateInput').value,
+                desc: document.getElementById('rmDescInput').value.trim() // 擷取備註欄位內容
             });
             syncDataToServer(); closeReminderModal(); renderReminders();
         });
