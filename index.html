@@ -178,6 +178,8 @@
         th { background-color: #f8f9fa; }
         .delete-btn { background-color: var(--danger-color); width: auto; padding: 8px 12px; font-size: 14px;}
         .btn-success { background-color: var(--success-color); width: auto; }
+        .btn-edit-table { background-color: var(--warning-color); color: white; width: auto; padding: 8px 12px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer; margin-right: 5px; }
+        .btn-edit-table:hover { background-color: var(--warning-hover); }
         .empty-state { text-align: center; padding: 40px; color: #95a5a6; font-style: italic; }
         
         /* 編輯與刪除車輛按鈕 */
@@ -244,6 +246,7 @@
                 <input type="date" id="date" required>
                 <input type="number" id="mileage" placeholder="當前里程數 (km)" required>
                 <input type="number" id="cost" placeholder="花費金額 (元)" required>
+                <input type="text" id="recordDesc" placeholder="備註內容 (選填，例如：店家名稱、機油品牌等)">
                 
                 <div class="items-section full-width">
                     <div class="items-header">
@@ -253,7 +256,10 @@
                     <div class="checkbox-group" id="checkboxGroup"></div>
                 </div>
 
-                <button type="submit" class="full-width">➕ 新增保養紀錄</button>
+                <div style="display: flex; gap: 10px;" class="full-width">
+                    <button type="submit" id="submitRecordBtn" style="flex: 1;">➕ 新增保養紀錄</button>
+                    <button type="button" id="cancelEditBtn" style="display:none; background-color: #95a5a6; flex: 1;" onclick="cancelEdit()">❌ 取消編輯</button>
+                </div>
             </form>
 
             <div class="table-container">
@@ -263,8 +269,9 @@
                             <th>日期</th>
                             <th>里程數</th>
                             <th>保養項目</th>
+                            <th>備註內容</th>
                             <th>花費</th>
-                            <th>操作</th>
+                            <th style="min-width: 130px;">操作</th>
                         </tr>
                     </thead>
                     <tbody id="recordBody"></tbody>
@@ -339,6 +346,7 @@
         let remindersData = {};
         let customItems = [];
         let currentActiveVehicle = null;
+        let editRecordIndex = -1; // 記錄目前正在編輯的歷史紀錄索引
 
         const loadingOverlay = document.getElementById('loadingOverlay');
         const syncStatus = document.getElementById('syncStatus');
@@ -475,6 +483,7 @@
         }
 
         function switchVehicle(vehicleName) {
+            cancelEdit(); // 切換車輛時取消正在編輯的狀態
             currentActiveVehicle = vehicleName;
             renderTabs();
             renderTable();
@@ -504,27 +513,18 @@
                     return alert('這個車輛名稱已經存在囉！');
                 }
 
-                // 1. 更新 vehicles 陣列
                 const index = vehicles.indexOf(oldName);
-                if (index !== -1) {
-                    vehicles[index] = cleanName;
-                }
+                if (index !== -1) vehicles[index] = cleanName;
 
-                // 2. 更新 recordsData 屬性名稱
                 if (recordsData[oldName]) {
                     recordsData[cleanName] = recordsData[oldName];
                     delete recordsData[oldName];
-                } else {
-                    recordsData[cleanName] = [];
-                }
+                } else recordsData[cleanName] = [];
 
-                // 3. 更新 remindersData 屬性名稱
                 if (remindersData[oldName]) {
                     remindersData[cleanName] = remindersData[oldName];
                     delete remindersData[oldName];
-                } else {
-                    remindersData[cleanName] = [];
-                }
+                } else remindersData[cleanName] = [];
 
                 currentActiveVehicle = cleanName;
                 syncDataToServer();
@@ -694,15 +694,68 @@
             const currentRecords = recordsData[currentActiveVehicle] || [];
             
             if (currentRecords.length === 0) {
-                recordBody.innerHTML = '<tr><td colspan="5" class="empty-state">目前尚無保養紀錄，請從上方表單新增。</td></tr>'; return;
+                recordBody.innerHTML = '<tr><td colspan="6" class="empty-state">目前尚無保養紀錄，請從上方表單新增。</td></tr>'; return;
             }
 
             currentRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
             currentRecords.forEach((record, index) => {
+                const descText = record.desc ? record.desc : '';
+                
                 const row = document.createElement('tr');
-                row.innerHTML = `<td>${record.date}</td><td>${Number(record.mileage).toLocaleString()} km</td><td>${record.item}</td><td>NT$ ${Number(record.cost).toLocaleString()}</td><td><button class="delete-btn" onclick="deleteRecord(${index})">刪除</button></td>`;
+                row.innerHTML = `
+                    <td>${record.date}</td>
+                    <td>${Number(record.mileage).toLocaleString()} km</td>
+                    <td>${record.item}</td>
+                    <td>${descText}</td>
+                    <td>NT$ ${Number(record.cost).toLocaleString()}</td>
+                    <td>
+                        <button class="btn-edit-table" onclick="editRecord(${index})">編輯</button>
+                        <button class="delete-btn" onclick="deleteRecord(${index})">刪除</button>
+                    </td>
+                `;
                 recordBody.appendChild(row);
             });
+        }
+
+        // 載入該筆紀錄到表單中編輯
+        window.editRecord = function(index) {
+            editRecordIndex = index;
+            const record = recordsData[currentActiveVehicle][index];
+            
+            document.getElementById('date').value = record.date;
+            document.getElementById('mileage').value = record.mileage;
+            document.getElementById('cost').value = record.cost;
+            document.getElementById('recordDesc').value = record.desc || '';
+            
+            // 重置所有勾選
+            document.querySelectorAll('input[name="mItem"]').forEach(cb => cb.checked = false);
+            // 勾選該紀錄有的項目
+            const items = record.item.split('、');
+            document.querySelectorAll('input[name="mItem"]').forEach(cb => {
+                if (items.includes(cb.value)) cb.checked = true;
+            });
+            
+            // 變更按鈕外觀為「更新」
+            const submitBtn = document.getElementById('submitRecordBtn');
+            submitBtn.innerHTML = '💾 更新保養紀錄';
+            submitBtn.style.backgroundColor = 'var(--warning-color)';
+            document.getElementById('cancelEditBtn').style.display = 'block';
+            
+            // 畫面平滑捲動到最上方
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // 取消編輯狀態
+        window.cancelEdit = function() {
+            editRecordIndex = -1;
+            document.getElementById('recordForm').reset();
+            document.getElementById('date').value = getTodayStr();
+            
+            // 恢復按鈕外觀為「新增」
+            const submitBtn = document.getElementById('submitRecordBtn');
+            submitBtn.innerHTML = '➕ 新增保養紀錄';
+            submitBtn.style.backgroundColor = 'var(--primary-color)';
+            document.getElementById('cancelEditBtn').style.display = 'none';
         }
 
         window.deleteRecord = function(index) {
@@ -718,18 +771,27 @@
             const checkedBoxes = document.querySelectorAll('input[name="mItem"]:checked');
             if(checkedBoxes.length === 0) return alert('請至少勾選一項保養項目！');
 
-            if(!recordsData[currentActiveVehicle]) recordsData[currentActiveVehicle] = [];
-            recordsData[currentActiveVehicle].push({
+            const newRecord = {
                 date: document.getElementById('date').value,
                 mileage: document.getElementById('mileage').value,
                 cost: document.getElementById('cost').value,
-                item: Array.from(checkedBoxes).map(cb => cb.value).join('、')
-            });
+                item: Array.from(checkedBoxes).map(cb => cb.value).join('、'),
+                desc: document.getElementById('recordDesc').value.trim()
+            };
+
+            if (editRecordIndex > -1) {
+                // 如果是編輯模式，則覆蓋指定索引的資料
+                recordsData[currentActiveVehicle][editRecordIndex] = newRecord;
+            } else {
+                // 新增模式
+                if(!recordsData[currentActiveVehicle]) recordsData[currentActiveVehicle] = [];
+                recordsData[currentActiveVehicle].push(newRecord);
+            }
             
             syncDataToServer();
-            document.getElementById('recordForm').reset();
-            document.getElementById('date').value = getTodayStr();
-            renderTable(); renderReminders();
+            cancelEdit(); // 裡面會包含重置表單
+            renderTable(); 
+            renderReminders();
         });
 
         window.onclick = function(event) {
