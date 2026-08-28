@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>汽機車保養紀錄 (雲端同步版)</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --hover-color: #2980b9;
+            --success-color: #2ecc71;
+            --success-hover: #27ae60;
+            --danger-color: #e74c3c;
+            --danger-hover: #c0392b;
+            --warning-color: #f39c12;
+            --warning-hover: #e67e22;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --border-color: #ddd;
+        }
+        
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            margin: 0; 
+            padding: 20px; 
+        }
+        
+        .container { 
+            max-width: 900px; 
+            margin: 0 auto; 
+            background: #fff; 
+            padding: 30px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+            position: relative;
+        }
+        
+        h1 { 
+            text-align: center; 
+            color: #2c3e50; 
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+        
+        /* 雲端同步狀態標籤 */
+        #syncStatus {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            background: #f39c12;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 9999;
+            transition: background 0.3s;
+        }
+
+        /* 全螢幕載入畫面 */
+        #loadingOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+        .spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* 頁籤設計 */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 20px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #7f8c8d;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.3s;
+        }
+        .tab:hover { color: var(--primary-color); }
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        .add-tab-btn {
+            padding: 12px 15px;
+            cursor: pointer;
+            color: var(--success-color);
+            font-weight: bold;
+        }
+        .add-tab-btn:hover { color: var(--success-hover); }
+
+        /* 提醒區塊設計 */
+        .reminder-container {
+            background-color: #fff9e6;
+            border-left: 5px solid var(--warning-color);
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 4px;
+        }
+        .reminder-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+        }
+        .reminder-header h4 { margin: 0; color: #d35400; }
+        .btn-add-reminder { background-color: var(--warning-color); padding: 6px 12px; font-size: 13px; }
+        
+        .reminder-list { list-style: none; padding: 0; margin: 0; }
+        .reminder-item {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #fff; padding: 10px 15px; margin-bottom: 8px; border: 1px solid #f1e2b3;
+        }
+        .rm-info { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .rm-info strong { color: #2c3e50; }
+        .rm-info span { color: #7f8c8d; font-size: 14px; }
+        .overdue { border-left: 4px solid var(--danger-color); background: #fdeaea; }
+        .overdue .rm-info strong { color: var(--danger-color); }
+        .badge-alert { background: var(--danger-color); color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; }
+
+        /* 表單設計 */
+        form { 
+            display: grid; grid-template-columns: 1fr 1fr; gap: 15px; 
+            margin-bottom: 30px; background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .full-width { grid-column: 1 / -1; }
+        
+        input, select, button { 
+            padding: 12px; font-size: 16px; border: 1px solid var(--border-color); 
+            border-radius: 6px; box-sizing: border-box; width: 100%;
+        }
+        button { background-color: var(--primary-color); color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: var(--hover-color); }
+        
+        /* 保養項目勾選區塊 */
+        .items-section { background: #fff; padding: 15px; border: 1px solid var(--border-color); border-radius: 6px; }
+        .items-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 10px;}
+        .btn-manage { background-color: #95a5a6; width: auto; padding: 6px 12px; font-size: 14px; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; }
+        .check-item input { display: none; }
+        .check-item label {
+            display: inline-block; padding: 8px 16px; background: #ecf0f1; color: #7f8c8d;
+            border-radius: 20px; cursor: pointer; font-size: 15px;
+        }
+        .check-item input:checked + label { background: var(--primary-color); color: white; }
+
+        /* 表格設計 */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #f8f9fa; }
+        .delete-btn { background-color: var(--danger-color); width: auto; padding: 8px 12px; font-size: 14px;}
+        .btn-success { background-color: var(--success-color); width: auto; }
+        .empty-state { text-align: center; padding: 40px; color: #95a5a6; font-style: italic; }
+        .delete-vehicle-btn { float: right; background: transparent; color: var(--danger-color); border: 1px solid var(--danger-color); width: auto; padding: 5px 10px;}
+
+        /* Modal 對話框 */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: #fff; margin: 10% auto; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .close { color: #aaa; font-size: 28px; cursor: pointer; }
+        .add-item-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+        .item-list { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; }
+        .item-list li { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; }
+        .btn-edit { background-color: var(--warning-color); width: auto; padding: 5px 10px;}
+
+        @media (max-width: 600px) { form { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <!-- 載入中遮罩 -->
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <h3 style="color: #2c3e50;">正在與 Google 雲端同步資料...</h3>
+        <p style="color: #7f8c8d;">這可能需要幾秒鐘的時間</p>
+        <button onclick="forceCloseLoading()" style="margin-top: 20px; padding: 10px 20px; background-color: #95a5a6; border-radius: 5px; font-size: 14px;">取消同步並使用本機資料</button>
+    </div>
+
+    <!-- 狀態提示 -->
+    <div id="syncStatus">🔄 同步中...</div>
+
+    <div class="container">
+        <h1>🛠️ 汽機車保養紀錄系統</h1>
+        <div class="subtitle">☁️ 資料即時同步於 Google 試算表</div>
+
+        <div class="tabs" id="vehicleTabs"></div>
+
+        <div id="contentArea" style="display: none;">
+            <button class="delete-vehicle-btn" id="deleteCurrentVehicleBtn">🗑️ 刪除此車輛</button>
+            <h3 id="currentVehicleTitle" style="margin-top: 0; color: #2c3e50;"></h3>
+            
+            <div class="reminder-container">
+                <div class="reminder-header">
+                    <h4>🔔 待辦保養提醒</h4>
+                    <button class="btn-add-reminder" onclick="openReminderModal()">+ 新增提醒</button>
+                </div>
+                <ul class="reminder-list" id="reminderList"></ul>
+            </div>
+
+            <form id="recordForm">
+                <input type="date" id="date" required>
+                <input type="number" id="mileage" placeholder="當前里程數 (km)" required>
+                <input type="number" id="cost" placeholder="花費金額 (元)" required>
+                
+                <div class="items-section full-width">
+                    <div class="items-header">
+                        <label>✅ 選擇保養項目 (可複選)</label>
+                        <button type="button" class="btn-manage" onclick="openItemModal()">⚙️ 管理項目</button>
+                    </div>
+                    <div class="checkbox-group" id="checkboxGroup"></div>
+                </div>
+
+                <button type="submit" class="full-width">➕ 新增保養紀錄</button>
+            </form>
+
+            <div class="table-container">
+                <table id="recordTable">
+                    <thead>
+                        <tr>
+                            <th>日期</th>
+                            <th>里程數</th>
+                            <th>保養項目</th>
+                            <th>花費</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordBody"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="noVehicleMsg" class="empty-state" style="display: none;">
+            請先點擊上方「+ 新增車輛」建立您的第一部車。
+        </div>
+    </div>
+
+    <!-- 管理保養項目 Modal -->
+    <div id="itemModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2>⚙️ 自訂保養項目</h2><span class="close" onclick="closeItemModal()">&times;</span></div>
+            <div class="add-item-bar">
+                <input type="text" id="newItemInput" placeholder="輸入新項目名稱...">
+                <button type="button" class="btn-success" onclick="addCustomItem()">新增</button>
+            </div>
+            <ul class="item-list" id="modalItemList"></ul>
+        </div>
+    </div>
+
+    <!-- 新增保養提醒 Modal -->
+    <div id="reminderModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2>🔔 設定保養提醒</h2><span class="close" onclick="closeReminderModal()">&times;</span></div>
+            <form id="reminderForm" style="display: flex; flex-direction: column; gap: 15px; margin: 0; padding:0; background:none; border:none;">
+                <select id="rmItemSelect" required></select>
+                <select id="rmTypeSelect" onchange="toggleReminderInput()" required>
+                    <option value="mileage">依里程數 (到達指定里程)</option>
+                    <option value="date">依日期 (到達指定日期)</option>
+                </select>
+                <input type="number" id="rmMileageInput" placeholder="目標里程數 (例如：50000)">
+                <input type="date" id="rmDateInput" style="display:none;">
+                <button type="submit">💾 儲存提醒</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // ⚠️ 請將下方的網址替換成您剛剛在 Google 部署獲得的 Web App URL
+        // ==========================================
+        const GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycbxc__HNmQYdmPCSqvuRGKlKZjM1deshY6sFQFJSXZyRqsNHlwqv8quV5xJ59a-h4VObXg/exec"; 
+        
+        
+        // DOM 與基礎資料結構
+        let vehicles = [];
+        let recordsData = {};
+        let remindersData = {};
+        let customItems = [];
+        let currentActiveVehicle = null;
+
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const syncStatus = document.getElementById('syncStatus');
+
+        function getTodayStr() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function forceCloseLoading() {
+             loadingOverlay.style.display = 'none';
+             loadLocalBackup();
+        }
+
+        // ================= 雲端同步系統 =================
+        // 初始化：從 Google 試算表讀取資料
+        async function initData() {
+            if (!GOOGLE_API_URL || GOOGLE_API_URL.includes("請將您的")) {
+                alert("⚠️ 尚未設定 Google API URL！\n請用文字編輯器打開 index.html，在下方填入您的 Web App URL。\n目前將暫時使用瀏覽器本機資料。");
+                loadLocalBackup();
+                return;
+            }
+
+            try {
+                // 使用 JSONP 處理跨域問題 (CORS) 或是加上 mode: 'cors'
+                // 如果是直接 fetch 遇到 CORS 錯誤，通常是 Google Apps Script 沒有正確回傳 CORS header
+                // 這裡嘗試直接 fetch，並處理錯誤
+                const response = await fetch(GOOGLE_API_URL, {
+                     method: 'GET',
+                     headers: {
+                        'Accept': 'application/json'
+                     }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data && typeof data === 'object') {
+                    vehicles = data.vehicles || [];
+                    recordsData = data.recordsData || {};
+                    remindersData = data.remindersData || {};
+                    customItems = data.customItems || [];
+                    
+                    currentActiveVehicle = vehicles[0] || null;
+                    
+                    // 將雲端資料也備份一份到本機
+                    saveToLocalStorage();
+                    renderAll();
+                } else {
+                    throw new Error("Invalid data format received from Google Script.");
+                }
+                
+            } catch (error) {
+                console.error("Fetch error:", error);
+                alert("❌ 從雲端讀取失敗，可能是跨域(CORS)問題或網址錯誤。\n請確認 Google Apps Script 有回傳 JSON，且部署權限設定為「所有人」。\n\n目前已載入本機備份資料。");
+                loadLocalBackup();
+            } finally {
+                loadingOverlay.style.display = 'none'; // 隱藏載入畫面
+                document.getElementById('date').value = getTodayStr();
+                document.getElementById('rmDateInput').value = getTodayStr();
+            }
+        }
+
+        // 將變更寫入 Google 試算表
+        async function syncDataToServer() {
+            // 先存本機備份
+            saveToLocalStorage();
+            
+            if (!GOOGLE_API_URL || GOOGLE_API_URL.includes("請將您的")) return;
+
+            // 顯示同步中提示
+            syncStatus.textContent = '🔄 雲端同步中...';
+            syncStatus.style.background = '#f39c12';
+            syncStatus.style.display = 'block';
+
+            const payload = {
+                vehicles: vehicles,
+                recordsData: recordsData,
+                remindersData: remindersData,
+                customItems: customItems
+            };
+
+            try {
+                // 發送 POST 請求
+                const response = await fetch(GOOGLE_API_URL, {
+                    method: 'POST',
+                    // 注意：Google Apps Script 的 doPost 有時候處理 Content-Type: application/json 會有 CORS preflight 請求問題
+                    // 所以改用 text/plain，然後在 Apps Script 裡面直接用 JSON.parse(e.postData.contents) 解析
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8' 
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                     throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                syncStatus.textContent = '✅ 已同步至雲端';
+                syncStatus.style.background = '#2ecc71';
+                setTimeout(() => { syncStatus.style.display = 'none'; }, 2000);
+            } catch (error) {
+                console.error("Sync error:", error);
+                syncStatus.textContent = '❌ 同步失敗 (已存本機)';
+                syncStatus.style.background = '#e74c3c';
+                setTimeout(() => { syncStatus.style.display = 'none'; }, 3000);
+            }
+        }
+
+        function loadLocalBackup() {
+            vehicles = JSON.parse(localStorage.getItem('myVehiclesList')) || ['🚗 預設汽車'];
+            recordsData = JSON.parse(localStorage.getItem('myRecordsData')) || { '🚗 預設汽車': [] };
+            remindersData = JSON.parse(localStorage.getItem('myRemindersData')) || { '🚗 預設汽車': [] };
+            customItems = JSON.parse(localStorage.getItem('myCustomItems')) || [
+                '機油', '齒輪油', '空氣濾清器', '火星塞', '煞車皮', '輪胎', '皮帶/鍊條', '水箱精', '年度大保養'
+            ];
+            currentActiveVehicle = vehicles[0] || null;
+            loadingOverlay.style.display = 'none';
+            renderAll();
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('myVehiclesList', JSON.stringify(vehicles));
+            localStorage.setItem('myRecordsData', JSON.stringify(recordsData));
+            localStorage.setItem('myRemindersData', JSON.stringify(remindersData));
+            localStorage.setItem('myCustomItems', JSON.stringify(customItems));
+        }
+
+        function renderAll() {
+            renderTabs();
+            renderCheckboxes();
+            if(currentActiveVehicle) {
+                renderTable();
+                renderReminders();
+            }
+        }
+
+        /* ================= 車輛與頁籤 ================= */
+        function renderTabs() {
+            const vehicleTabs = document.getElementById('vehicleTabs');
+            vehicleTabs.innerHTML = '';
+            vehicles.forEach(vehicle => {
+                const tab = document.createElement('div');
+                tab.className = 'tab ' + (vehicle === currentActiveVehicle ? 'active' : '');
+                tab.textContent = vehicle;
+                tab.onclick = () => switchVehicle(vehicle);
+                vehicleTabs.appendChild(tab);
+            });
+            const addBtn = document.createElement('div');
+            addBtn.className = 'add-tab-btn';
+            addBtn.textContent = '+ 新增車輛';
+            addBtn.onclick = addNewVehicle;
+            vehicleTabs.appendChild(addBtn);
+
+            updateContentVisibility();
+        }
+
+        function switchVehicle(vehicleName) {
+            currentActiveVehicle = vehicleName;
+            renderTabs();
+            renderTable();
+            renderReminders();
+        }
+
+        function addNewVehicle() {
+            const name = prompt('請輸入新車輛名稱：');
+            if (name && name.trim() !== '') {
+                const cleanName = name.trim();
+                if (vehicles.includes(cleanName)) return alert('車輛名稱已存在！');
+                vehicles.push(cleanName);
+                recordsData[cleanName] = []; remindersData[cleanName] = [];
+                syncDataToServer();
+                switchVehicle(cleanName);
+            }
+        }
+
+        document.getElementById('deleteCurrentVehicleBtn').addEventListener('click', function() {
+            if(confirm(`確定要刪除「${currentActiveVehicle}」及其所有紀錄與提醒嗎？`)) {
+                vehicles = vehicles.filter(v => v !== currentActiveVehicle);
+                delete recordsData[currentActiveVehicle]; delete remindersData[currentActiveVehicle];
+                currentActiveVehicle = vehicles.length > 0 ? vehicles[0] : null;
+                syncDataToServer();
+                renderAll();
+            }
+        });
+
+        function updateContentVisibility() {
+            const contentArea = document.getElementById('contentArea');
+            const noVehicleMsg = document.getElementById('noVehicleMsg');
+            if (vehicles.length === 0) {
+                contentArea.style.display = 'none'; noVehicleMsg.style.display = 'block';
+            } else {
+                contentArea.style.display = 'block'; noVehicleMsg.style.display = 'none';
+                document.getElementById('currentVehicleTitle').textContent = `📋 ${currentActiveVehicle} 的保養紀錄`;
+            }
+        }
+
+        /* ================= 保養項目管理 ================= */
+        function renderCheckboxes() {
+            const checkboxGroup = document.getElementById('checkboxGroup');
+            checkboxGroup.innerHTML = '';
+            customItems.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'check-item';
+                div.innerHTML = `<input type="checkbox" id="item_${index}" name="mItem" value="${item}"><label for="item_${index}">${item}</label>`;
+                checkboxGroup.appendChild(div);
+            });
+        }
+
+        function openItemModal() { document.getElementById('itemModal').style.display = "block"; renderModalList(); }
+        function closeItemModal() { document.getElementById('itemModal').style.display = "none"; }
+
+        function renderModalList() {
+            const modalItemList = document.getElementById('modalItemList');
+            modalItemList.innerHTML = '';
+            customItems.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span>${item}</span><div class="item-actions"><button class="btn-edit" onclick="editCustomItem(${index})">編輯</button><button class="delete-btn" onclick="deleteCustomItem(${index})">刪除</button></div>`;
+                modalItemList.appendChild(li);
+            });
+        }
+
+        function addCustomItem() {
+            const val = document.getElementById('newItemInput').value.trim();
+            if(val) {
+                if(customItems.includes(val)) return alert('項目已存在！');
+                customItems.push(val); document.getElementById('newItemInput').value = '';
+                syncDataToServer(); renderCheckboxes(); renderModalList();
+            }
+        }
+
+        window.editCustomItem = function(index) {
+            const newName = prompt("請輸入新的名稱：", customItems[index]);
+            if(newName && newName.trim() !== '') {
+                customItems[index] = newName.trim();
+                syncDataToServer(); renderCheckboxes(); renderModalList();
+            }
+        }
+
+        window.deleteCustomItem = function(index) {
+            if(confirm(`確定要刪除「${customItems[index]}」嗎？`)) {
+                customItems.splice(index, 1);
+                syncDataToServer(); renderCheckboxes(); renderModalList();
+            }
+        }
+
+        /* ================= 提醒功能 ================= */
+        function getCurrentMaxMileage() {
+            const records = recordsData[currentActiveVehicle] || [];
+            return records.length === 0 ? 0 : Math.max(...records.map(r => Number(r.mileage)));
+        }
+
+        function renderReminders() {
+            if (!currentActiveVehicle) return;
+            const reminderList = document.getElementById('reminderList');
+            reminderList.innerHTML = '';
+            const reminders = remindersData[currentActiveVehicle] || [];
+            const currentMileage = getCurrentMaxMileage();
+            const today = getTodayStr();
+
+            if (reminders.length === 0) {
+                reminderList.innerHTML = '<li style="color:#95a5a6; font-size:14px; padding:10px 0;">目前無設定任何待辦提醒。</li>';
+                return;
+            }
+
+            reminders.forEach((rm, index) => {
+                let isOverdue = (rm.type === 'mileage' && currentMileage >= rm.target) || (rm.type === 'date' && today >= rm.target);
+                let desc = rm.type === 'mileage' ? `目標：${Number(rm.target).toLocaleString()} km (進度: ${currentMileage.toLocaleString()} km)` : `目標日期：${rm.target}`;
+
+                const li = document.createElement('li');
+                li.className = 'reminder-item ' + (isOverdue ? 'overdue' : '');
+                li.innerHTML = `
+                    <div class="rm-info">
+                        <strong>${rm.item}</strong> <span>${desc}</span>
+                        ${isOverdue ? '<span class="badge-alert">⚠️ 該保養囉！</span>' : ''}
+                    </div>
+                    <button class="btn-success" style="font-size:12px; padding:6px 12px;" onclick="completeReminder(${index})">✅ 完成移除</button>`;
+                reminderList.appendChild(li);
+            });
+        }
+
+        function openReminderModal() {
+            document.getElementById('rmItemSelect').innerHTML = customItems.map(item => `<option value="${item}">${item}</option>`).join('');
+            document.getElementById('rmMileageInput').value = getCurrentMaxMileage() + 1000;
+            document.getElementById('reminderModal').style.display = "block";
+        }
+        function closeReminderModal() { document.getElementById('reminderModal').style.display = "none"; }
+
+        window.toggleReminderInput = function() {
+            const type = document.getElementById('rmTypeSelect').value;
+            document.getElementById('rmMileageInput').style.display = type === 'mileage' ? 'block' : 'none';
+            document.getElementById('rmDateInput').style.display = type === 'date' ? 'block' : 'none';
+            document.getElementById('rmMileageInput').required = type === 'mileage';
+            document.getElementById('rmDateInput').required = type === 'date';
+        }
+
+        document.getElementById('reminderForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const type = document.getElementById('rmTypeSelect').value;
+            if(!remindersData[currentActiveVehicle]) remindersData[currentActiveVehicle] = [];
+            remindersData[currentActiveVehicle].push({
+                item: document.getElementById('rmItemSelect').value,
+                type: type,
+                target: type === 'mileage' ? Number(document.getElementById('rmMileageInput').value) : document.getElementById('rmDateInput').value
+            });
+            syncDataToServer(); closeReminderModal(); renderReminders();
+        });
+
+        window.completeReminder = function(index) {
+            if(confirm('確定已完成並移除此提醒嗎？')) {
+                remindersData[currentActiveVehicle].splice(index, 1);
+                syncDataToServer(); renderReminders();
+            }
+        }
+
+        /* ================= 紀錄與表格 ================= */
+        function renderTable() {
+            if (!currentActiveVehicle) return;
+            const recordBody = document.getElementById('recordBody');
+            recordBody.innerHTML = '';
+            const currentRecords = recordsData[currentActiveVehicle] || [];
+            
+            if (currentRecords.length === 0) {
+                recordBody.innerHTML = '<tr><td colspan="5" class="empty-state">目前尚無保養紀錄，請從上方表單新增。</td></tr>'; return;
+            }
+
+            currentRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+            currentRecords.forEach((record, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${record.date}</td><td>${Number(record.mileage).toLocaleString()} km</td><td>${record.item}</td><td>NT$ ${Number(record.cost).toLocaleString()}</td><td><button class="delete-btn" onclick="deleteRecord(${index})">刪除</button></td>`;
+                recordBody.appendChild(row);
+            });
+        }
+
+        window.deleteRecord = function(index) {
+            if(confirm('確定要刪除這筆紀錄嗎？')) {
+                recordsData[currentActiveVehicle].splice(index, 1);
+                syncDataToServer(); renderTable(); renderReminders();
+            }
+        }
+
+        document.getElementById('recordForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!currentActiveVehicle) return;
+            const checkedBoxes = document.querySelectorAll('input[name="mItem"]:checked');
+            if(checkedBoxes.length === 0) return alert('請至少勾選一項保養項目！');
+
+            if(!recordsData[currentActiveVehicle]) recordsData[currentActiveVehicle] = [];
+            recordsData[currentActiveVehicle].push({
+                date: document.getElementById('date').value,
+                mileage: document.getElementById('mileage').value,
+                cost: document.getElementById('cost').value,
+                item: Array.from(checkedBoxes).map(cb => cb.value).join('、')
+            });
+            
+            syncDataToServer();
+            document.getElementById('recordForm').reset();
+            document.getElementById('date').value = getTodayStr();
+            renderTable(); renderReminders();
+        });
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('itemModal')) closeItemModal();
+            if (event.target == document.getElementById('reminderModal')) closeReminderModal();
+        }
+
+        // 啟動程式 (會自動觸發網路抓取)
+        window.onload = initData;
+
+    </script>
+</body>
+</html>
